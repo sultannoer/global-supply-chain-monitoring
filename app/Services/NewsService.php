@@ -9,14 +9,12 @@ class NewsService
 {
     protected $baseUrl = 'https://gnews.io/api/v4/search';
 
-    /**
-     * Mengambil 3 berita logistik/ekonomi terbaru berdasarkan nama negara
-     */
+    
     public function getLatestNews($countryName)
     {
         $apiKey = env('GNEWS_API_KEY');
 
-        // Validasi jika API Key terlupa belum diisi di .env
+        
         if (!$apiKey) {
             return [
                 'success' => false, 
@@ -25,8 +23,7 @@ class NewsService
         }
 
         try {
-            // Kita cari berita dengan query: "Nama Negara" AND (logistics OR economy OR trade)
-            // Dibatasi hanya 3 berita teratas (max=3) dalam bahasa Inggris (lang=en)
+            
             $response = Http::timeout(10)->get($this->baseUrl, [
                 'q'        => '"' . trim($countryName) . '" AND (logistics OR economy OR trade)',
                 'lang'     => 'en',

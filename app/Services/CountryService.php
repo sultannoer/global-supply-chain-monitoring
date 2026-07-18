@@ -7,12 +7,10 @@ use Illuminate\Support\Facades\Log;
 
 class CountryService
 {
-    // Menggunakan endpoint resmi REST Countries v3.1
+    
     protected $baseUrl = 'https://restcountries.com/v3.1/alpha/';
 
-    /**
-     * Mengambil data negara. Jika API utama down, otomatis beralih ke backup lokal.
-     */
+    
     public function getCountryData($countryCode)
     {
         $code = strtolower(trim($countryCode));
@@ -22,7 +20,7 @@ class CountryService
         }
 
         try {
-            // Kita tembak API utama dengan User-Agent agar tidak diblokir firewall mereka
+
             $response = Http::withHeaders([
                 'User-Agent' => 'LogisticsApp/1.0 (Mozilla/5.0)'
             ])->timeout(8)->get($this->baseUrl . $code);
@@ -32,7 +30,7 @@ class CountryService
                 $data = is_array($jsonData) && isset($jsonData[0]) ? $jsonData[0] : null;
 
                 if ($data) {
-                    // 1. Ambil Mata Uang
+                    
                     $currencyCode = 'N/A';
                     $currencyName = 'N/A';
                     if (!empty($data['currencies']) && is_array($data['currencies'])) {
@@ -40,7 +38,7 @@ class CountryService
                         $currencyName = $data['currencies'][$currencyCode]['name'] ?? 'N/A';
                     }
 
-                    // 2. Ambil Bahasa Resmi
+                    
                     $languages = ['N/A'];
                     if (!empty($data['languages']) && is_array($data['languages'])) {
                         $languages = array_values($data['languages']);
@@ -58,24 +56,22 @@ class CountryService
                 }
             }
 
-            // Jika server mereka merespon tapi formatnya aneh, lempar ke backup
+            
             return $this->getFallbackData($code);
 
         } catch (\Exception $e) {
             Log::warning("REST Countries utama bermasalah: " . $e->getMessage() . ". Mengalihkan ke data cadangan.");
-            // Jika server down / timeout, langsung selamatkan aplikasi dengan data cadangan
+           
             return $this->getFallbackData($code);
         }
     }
 
-    /**
-     * Data cadangan (Fallback) otomatis menggunakan Flagcdn terpercaya
-     */
+    
     private function getFallbackData($code)
     {
         $upperCode = strtoupper($code);
         
-        // Data peta mini untuk negara-negara logistik utama kamu
+       
         $database = [
             'ID' => ['name' => 'Republic of Indonesia', 'region' => 'Asia (South-Eastern Asia)', 'currency' => 'IDR - Indonesian rupiah', 'lang' => 'Indonesian'],
             'SG' => ['name' => 'Republic of Singapore', 'region' => 'Asia (South-Eastern Asia)', 'currency' => 'SGD - Singapore dollar', 'lang' => 'English, Malay, Mandarin, Tamil'],
@@ -95,7 +91,7 @@ class CountryService
             ];
         }
 
-        // Jika kode negara di luar daftar di atas, sistem tetap membuatkan data pintar agar tidak N/A
+        
         return [
             'success'    => true,
             'nama_resmi' => 'Country Territory (' . $upperCode . ')',

@@ -7,16 +7,14 @@ use Illuminate\Support\Facades\Log;
 
 class WeatherService
 {
-    // URL resmi Open-Meteo (Gratis & Terbuka publik)
+    
     protected $baseUrl = 'https://api.open-meteo.com/v1/forecast';
 
-    /**
-     * Mengambil data cuaca berdasarkan koordinat Lintang (Lat) dan Bujur (Lon)
-     */
+    
     public function getWeatherByCoordinates($lat, $lon)
     {
         try {
-            // Kita langsung tembak URL tanpa perlu mengirimkan API Key/AppID
+            
             $response = Http::get($this->baseUrl, [
                 'latitude'  => $lat,
                 'longitude' => $lon,
@@ -24,11 +22,11 @@ class WeatherService
                 'timezone'  => 'auto'
             ]);
 
-            // Jika server Open-Meteo sukses merespons
+            
             if ($response->successful()) {
                 $current = $response->json()['current'];
-                $windSpeed = $current['wind_speed_10m'] ?? 0; // Kecepatan angin (km/h)
-                $rain = $current['rain'] ?? 0; // Curah hujan (mm)
+                $windSpeed = $current['wind_speed_10m'] ?? 0; 
+                $rain = $current['rain'] ?? 0; 
 
                 return [
                     'success'          => true,
@@ -49,12 +47,10 @@ class WeatherService
         }
     }
 
-    /**
-     * Hitung Risiko Badai (Kebutuhan Poin 1 di daftar API kamu)
-     */
+    
     private function calculateStormRisk($windSpeed, $rain)
     {
-        // Parameter maritim: Angin > 50 km/h ATAU curah hujan > 10 mm
+        
         if ($windSpeed > 50 || $rain > 10) {
             return 'Tinggi (Risiko Badai/Siklon)';
         } elseif ($windSpeed > 30 || $rain > 5) {
@@ -63,9 +59,7 @@ class WeatherService
         return 'Rendah (Aman)';
     }
 
-    /**
-     * Tentukan status keamanan pelabuhan
-     */
+    
     private function checkSafetyStatus($windSpeed)
     {
         if ($windSpeed > 50) {

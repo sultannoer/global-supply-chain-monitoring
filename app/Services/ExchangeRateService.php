@@ -7,13 +7,10 @@ use Illuminate\Support\Facades\Log;
 
 class ExchangeRateService
 {
-    // URL publik ExchangeRate-API (Gratis & Bebas API Key dengan base USD)
+    
     protected $baseUrl = 'https://open.er-api.com/v6/latest/USD';
 
-    /**
-     * Mendapatkan nilai kurs mata uang target terhadap 1 USD
-     * Contoh: $targetCurrency = 'IDR' atau 'SGD'
-     */
+    
     public function getRateAgainstUsd($targetCurrency)
     {
         try {
@@ -23,7 +20,7 @@ class ExchangeRateService
                 $data = $response->json();
                 $rates = $data['rates'] ?? [];
                 
-                // Pastikan kode mata uang target dalam huruf besar (e.g., IDR)
+                
                 $currency = strtoupper(trim($targetCurrency));
 
                 if (array_key_exists($currency, $rates)) {
