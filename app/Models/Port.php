@@ -15,13 +15,13 @@ class Port extends Model
         return $this->belongsTo(Country::class);
     }
 
-    // Relasi untuk pengiriman dari pelabuhan ini
+    
     public function originShipments(): HasMany
     {
         return $this->hasMany(Shipment::class, 'origin_port_id');
     }
 
-    // Relasi untuk pengiriman menuju pelabuhan ini
+    
     public function destinationShipments(): HasMany
     {
         return $this->hasMany(Shipment::class, 'destination_port_id');
