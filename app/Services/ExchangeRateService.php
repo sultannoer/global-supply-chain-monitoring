@@ -3,49 +3,46 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
+use App\Models\Shipment;
 
 class ExchangeRateService
 {
     
-    protected $baseUrl = 'https://open.er-api.com/v6/latest/USD';
-
-    
-    public function getRateAgainstUsd($targetCurrency)
+    public function updateShipmentExchangeRate(Shipment $shipment): bool
     {
         try {
-            $response = Http::timeout(10)->get($this->baseUrl);
+            
+            $destinationCurrency = $shipment->destinationPort->country->currency_code ?? null;
 
-            if ($response->successful()) {
-                $data = $response->json();
-                $rates = $data['rates'] ?? [];
-                
-                
-                $currency = strtoupper(trim($targetCurrency));
-
-                if (array_key_exists($currency, $rates)) {
-                    $rateValue = $rates[$currency];
-
-                    return [
-                        'success'     => true,
-                        'base'        => 'USD',
-                        'target'      => $currency,
-                        'nilai_kurs'  => '1 USD = ' . number_format($rateValue, 2, ',', '.') . ' ' . $currency,
-                        'updated_at'  => $data['time_last_update_utc'] ?? 'Baru saja'
-                    ];
-                }
-
-                return [
-                    'success' => false,
-                    'message' => 'Kode mata uang (' . $currency . ') tidak ditemukan di data kurs.'
-                ];
+            
+            if (!$destinationCurrency) {
+                return false;
             }
 
-            return ['success' => false, 'message' => 'Gagal mengambil data dari Exchange Rate server.'];
+            
+            $response = Http::get("https://open.er-api.com/v6/latest/USD");
 
+            if ($response->successful()) {
+                $rates = $response->json('rates');
+
+                
+                $currentRate = $rates[$destinationCurrency] ?? null;
+
+                if ($currentRate) {
+                    
+                    $shipment->update([
+                        'current_exchange_rate' => $currentRate
+                    ]);
+
+                    return true;
+                }
+            }
+
+            return false;
         } catch (\Exception $e) {
-            Log::error('Exchange Rate Service Error: ' . $e->getMessage());
-            return ['success' => false, 'message' => 'Terjadi kesalahan pada sistem nilai tukar uang.'];
+            
+            \Log::error("Gagal memperbarui kurs untuk Shipment #{$shipment->tracking_number}: " . $e->getMessage());
+            return false;
         }
     }
 }

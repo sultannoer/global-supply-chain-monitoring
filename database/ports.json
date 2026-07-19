@@ -7,7 +7,7 @@
   {"code": "KOR", "country": "South Korea", "curr": "KRW", "port_code": "KRPUS", "port": "Port of Busan", "lat": 35.1042, "lon": 129.0430},
   {"code": "IND", "country": "India", "curr": "INR", "port_code": "INBOM", "port": "Jawaharlal Nehru Port", "lat": 18.9496, "lon": 72.9498},
   {"code": "ARE", "country": "United Arab Emirates", "curr": "AED", "port_code": "AEJEA", "port": "Port of Jebel Ali", "lat": 24.9857, "lon": 55.0712},
-  {"code": "SAU", "country": "Saudi Arabia", "curr": "SAR", "port_code": "SAJED", "port": "Jeddah Islamic Port", "lat": 21.4820, "lon": 39.1480},
+  {"code": "SAU", "raw_country": "Saudi Arabia", "curr": "SAR", "port_code": "SAJED", "port": "Jeddah Islamic Port", "lat": 21.4820, "lon": 39.1480},
   {"code": "NLD", "country": "Netherlands", "curr": "EUR", "port_code": "NLRTM", "port": "Port of Rotterdam", "lat": 51.9488, "lon": 4.1430},
   {"code": "DEU", "country": "Germany", "curr": "EUR", "port_code": "DEHAM", "port": "Port of Hamburg", "lat": 53.5422, "lon": 9.9678},
   {"code": "GBR", "country": "United Kingdom", "curr": "GBP", "port_code": "GBFXT", "port": "Port of Felixstowe", "lat": 51.9566, "lon": 1.3190},
@@ -136,5 +136,17 @@
   {"code": "BRN", "country": "Brunei", "curr": "BND", "port_code": "BNMUA", "port": "Muara Port", "lat": 4.9725, "lon": 115.0675},
   {"code": "TLS", "country": "East Timor", "curr": "USD", "port_code": "TLDIL", "port": "Port of Dili", "lat": -8.5524, "lon": 125.5736},
   {"code": "SLB", "country": "Solomon Islands", "curr": "SBD", "port_code": "SBHIR", "port": "Port of Honiara", "lat": -9.4286, "lon": 159.9556},
-  {"code": "URY", "country": "Uruguay", "curr": "UYU", "port_code": "UYMVD", "port": "Port of Montevideo", "lat": -34.9083, "lon": -56.2139}
+  {"code": "URY", "country": "Uruguay", "curr": "UYU", "port_code": "UYMVD", "port": "Port of Montevideo", "lat": -34.9083, "lon": -56.2139},
+  {"code": "AGO", "country": "Angola", "curr": "AOA", "port_code": "AOLAD", "port": "Port of Luanda", "lat": -8.8028, "lon": 13.2422},
+  {"code": "CMR", "country": "Cameroon", "curr": "XAF", "port_code": "CMDLA", "port": "Port of Douala", "lat": 4.0489, "lon": 9.6978},
+  {"code": "GHA", "country": "Ghana", "curr": "GHS", "port_code": "GHTEM", "port": "Port of Tema", "lat": 5.6264, "lon": 0.0125},
+  {"code": "MOZ", "country": "Mozambique", "curr": "MZN", "port_code": "MZMPM", "port": "Port of Maputo", "lat": -25.9764, "lon": 32.5642},
+  {"code": "MDG", "country": "Madagascar", "curr": "MGA", "port_code": "MGTMM", "port": "Port of Toamasina", "lat": -18.1494, "lon": 49.4208},
+  {"code": "CIV", "country": "Ivory Coast", "curr": "XOF", "port_code": "CIABJ", "port": "Port of Abidjan", "lat": 5.2922, "lon": -4.0142},
+  {"code": "GAB", "country": "Gabon", "curr": "XAF", "port_code": "GBLBV", "port": "Port of Libreville", "lat": 0.3858, "lon": 9.4358},
+  {"code": "SEN", "country": "Senegal", "curr": "XOF", "port_code": "DKR", "port": "Port of Dakar", "lat": 14.6853, "lon": -17.4264},
+  {"code": "KEN", "country": "Kenya", "curr": "KES", "port_code": "KEMBA", "port": "Port of Mombasa", "lat": -4.0485, "lon": 39.6583},
+  {"code": "MUS", "country": "Mauritius", "curr": "MUR", "port_code": "MUPLU", "port": "Port Louis", "lat": -20.1586, "lon": 57.4939},
+  {"code": "DZA", "country": "Algeria", "curr": "DZD", "port_code": "DZALG", "port": "Port of Algiers", "lat": 36.7753, "lon": 3.0603},
+  {"code": "MRT", "country": "Mauritania", "curr": "MRU", "port_code": "MRNKC", "port": "Port of Nouakchott", "lat": 18.0267, "lon": -16.0189}
 ]

@@ -8,21 +8,39 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Port extends Model
 {
-    protected $fillable = ['country_id', 'port_code', 'name', 'latitude', 'longitude', 'weather_status', 'congestion_level'];
+    // Kolom yang diizinkan untuk diisi mass-assignment
+    protected $fillable = [
+        'name', 
+        'country_code', 
+        'latitude', 
+        'longitude',
+        'temp', 
+        'rain', 
+        'wind_speed', 
+        'storm_risk_status', 
+        'risk_score'
+    ];
 
+    /**
+     * Hubungan Pelabuhan ke Negara Asalnya (Inverse dari HasMany)
+     */
     public function country(): BelongsTo
     {
-        return $this->belongsTo(Country::class);
+        return $this->belongsTo(Country::class, 'country_code', 'code');
     }
 
-    
-    public function originShipments(): HasMany
+    /**
+     * Hubungan Pelabuhan sebagai tempat KEBERANGKATAN kapal aktif
+     */
+    public function outboundShipments(): HasMany
     {
         return $this->hasMany(Shipment::class, 'origin_port_id');
     }
 
-    
-    public function destinationShipments(): HasMany
+    /**
+     * Hubungan Pelabuhan sebagai tempat TUJUAN AKHIR kapal aktif
+     */
+    public function inboundShipments(): HasMany
     {
         return $this->hasMany(Shipment::class, 'destination_port_id');
     }

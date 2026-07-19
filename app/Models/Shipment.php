@@ -7,24 +7,37 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Shipment extends Model
 {
+    
     protected $fillable = [
-        'shipment_number',
-        'origin_port_id',
+        'tracking_number', 
+        'vessel_name', 
+        'origin_port_id', 
         'destination_port_id',
-        'departure_date',
-        'estimated_arrival_date',
-        'actual_arrival_date',
-        'initial_cost',
-        'current_cost',
-        'risk_status',
-        'risk_reason'
+        'current_lat', 
+        'current_lng', 
+        'departure_date', 
+        'baseline_eta', 
+        'adaptive_eta',
+        'initial_cost_usd', 
+        'current_exchange_rate', 
+        'status', 
+        'risk_score'
     ];
 
+    
+    protected $casts = [
+        'departure_date' => 'date',
+        'baseline_eta' => 'date',
+        'adaptive_eta' => 'date',
+    ];
+
+    
     public function originPort(): BelongsTo
     {
         return $this->belongsTo(Port::class, 'origin_port_id');
     }
 
+   
     public function destinationPort(): BelongsTo
     {
         return $this->belongsTo(Port::class, 'destination_port_id');

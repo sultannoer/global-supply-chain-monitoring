@@ -3,88 +3,59 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
+use App\Models\Country;
 
 class EconomicService
 {
     
-    protected $baseUrl = 'https://api.worldbank.org/v2/country';
-
-   
-    public function getEconomicData($countryCode)
+    public function updateCountryEconomicIndicators(Country $country): bool
     {
         try {
+            $code = strtolower($country->code);
+
+           
+            $gdpResponse = Http::get("https://api.worldbank.org/v2/country/{$code}/indicator/NY.GDP.MKTP.CD?format=json&per_page=1");
             
-            return [
-                'success'   => true,
-                'gdp'       => $this->fetchIndicator($countryCode, 'NY.GDP.MKTP.CD'),
-                'inflasi'   => $this->fetchIndicator($countryCode, 'FP.CPI.TOTL.ZG'),
-                'populasi'  => $this->fetchIndicator($countryCode, 'SP.POP.TOTL'),
-                'ekspor'    => $this->fetchIndicator($countryCode, 'NE.EXP.GNFS.ZS'),
-                'impor'     => $this->fetchIndicator($countryCode, 'NE.IMP.GNFS.ZS'),
-            ];
-        } catch (\Exception $e) {
-            Log::error('World Bank Service Error: ' . $e->getMessage());
-            return [
-                'success' => false,
-                'message' => 'Gagal memuat data ekonomi dari World Bank.'
-            ];
-        }
-    }
+            
+            $inflationResponse = Http::get("https://api.worldbank.org/v2/country/{$code}/indicator/FP.CPI.TOTL.ZG?format=json&per_page=1");
+            
+            
+            $popResponse = Http::get("https://api.worldbank.org/v2/country/{$code}/indicator/SP.POP.TOTL?format=json&per_page=1");
 
-    
-    private function fetchIndicator($countryCode, $indicatorCode)
-    {
-        
-        $response = Http::get("{$this->baseUrl}/{$countryCode}/indicator/{$indicatorCode}", [
-            'format'   => 'json',
-            'per_page' => 1
-        ]);
+         
+            $gdp = $country->gdp;
+            $inflation = $country->inflation_rate;
+            $population = $country->population;
 
-        if ($response->successful()) {
-            $data = $response->json();
-
-          
-            if (isset($data[1]) && count($data[1]) > 0) {
-                $latestData = $data[1][0];
-                $value = $latestData['value'];
-                $year = $latestData['date'];
-
-                if ($value === null) {
-                    return 'Data Belum Tersedia';
-                }
-
-                
-                return $this->formatOutput($indicatorCode, $value) . " ({$year})";
+            
+            if ($gdpResponse->successful() && isset($gdpResponse->json()[1][0]['value'])) {
+                $gdp = $gdpResponse->json()[1][0]['value'];
             }
-        }
 
-        return 'N/A';
-    }
+            
+            if ($inflationResponse->successful() && isset($inflationResponse->json()[1][0]['value'])) {
+                $inflation = $inflationResponse->json()[1][0]['value'];
+            }
 
-    
-    private function formatOutput($indicatorCode, $value)
-    {
-        switch ($indicatorCode) {
-            case 'NY.GDP.MKTP.CD':
+            
+            if ($popResponse->successful() && isset($popResponse->json()[1][0]['value'])) {
+                $population = $popResponse->json()[1][0]['value'];
+            }
+
+            
+            $country->update([
+                'gdp' => $gdp,
+                'inflation_rate' => $inflation,
+                'population' => $population,
                 
-                if ($value >= 1000000000000) {
-                    return '$' . number_format($value / 1000000000000, 2) . ' Triliun';
-                }
-                return '$' . number_format($value / 1000000000, 2) . ' Miliar';
-                
-            case 'SP.POP.TOTL':
-                
-                return number_format($value, 0, ',', '.') . ' Jiwa';
-                
-            case 'FP.CPI.TOTL.ZG':
-            case 'NE.EXP.GNFS.ZS':
-            case 'NE.IMP.GNFS.ZS':
-                
-                return number_format($value, 2) . '%';
-                
-            default:
-                return $value;
+                'export_volume' => $gdp ? ($gdp * 0.25) : null, 
+                'import_volume' => $gdp ? ($gdp * 0.22) : null, 
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            \Log::error("Gagal memperbarui indikator ekonomi World Bank untuk negara {$country->code}: " . $e->getMessage());
+            return false;
         }
     }
 }

@@ -2,59 +2,66 @@
 
 namespace App\Services;
 
+use App\Models\Shipment;
+use Carbon\Carbon;
+
 class MarineTrafficService
 {
-    
-    public function getPortTrafficData($latitude, $longitude, $zoom = 10)
+   
+    public function updateShipmentLocation(Shipment $shipment): bool
     {
-        
-        $seed = abs((int)($latitude * 100) + (int)($longitude * 100));
-        srand($seed);
+        try {
+            $now = Carbon::now();
+            $departure = Carbon::parse($shipment->departure_date);
+            $eta = Carbon::parse($shipment->adaptive_eta);
 
-        $baseShips = rand(25, 145);
-        $waitingTime = rand(3, 22);
+            
+            if ($now->lessThanOrEqualTo($departure)) {
+                $shipment->update([
+                    'current_lat' => $shipment->originPort->latitude,
+                    'current_lng' => $shipment->originPort->longitude,
+                    'status' => 'ON_VOYAGE'
+                ]);
+                return true;
+            }
 
-        if ($baseShips > 100) {
-            $status = 'High Congestion (Padat)';
-            $statusColor = 'danger'; 
-        } elseif ($baseShips > 55) {
-            $status = 'Moderate (Normal)';
-            $statusColor = 'warning'; 
-        } else {
-            $status = 'Low Traffic (Lancar)';
-            $statusColor = 'success'; 
+            
+            if ($now->greaterThanOrEqualTo($eta)) {
+                $shipment->update([
+                    'current_lat' => $shipment->destinationPort->latitude,
+                    'current_lng' => $shipment->destinationPort->longitude,
+                    'status' => 'ARRIVED'
+                ]);
+                return true;
+            }
+
+            
+            $totalDuration = $departure->diffInSeconds($eta);
+            $elapsedTime = $departure->diffInSeconds($now);
+
+            
+            $fraction = $totalDuration > 0 ? ($elapsedTime / $totalDuration) : 1;
+
+            $originLat = (float) $shipment->originPort->latitude;
+            $originLng = (float) $shipment->originPort->longitude;
+            $destLat = (float) $shipment->destinationPort->latitude;
+            $destLng = (float) $shipment->destinationPort->longitude;
+
+            
+            $currentLat = $originLat + ($destLat - $originLat) * $fraction;
+            $currentLng = $originLng + ($destLng - $originLng) * $fraction;
+
+            
+            $shipment->update([
+                'current_lat' => round($currentLat, 8),
+                'current_lng' => round($currentLng, 8),
+                'status' => 'ON_VOYAGE'
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            \Log::error("Gagal memperbarui koordinat pelayaran untuk Shipment #{$shipment->tracking_number}: " . $e->getMessage());
+            return false;
         }
-
-       
-        $params = http_build_query([
-            'lat' => trim($latitude),
-            'lon' => trim($longitude),
-            'zoom' => $zoom,
-            'fleet' => '',
-            'theme' => 'light',
-            'mapsource' => '0',
-        ]);
-        $embedUrl = "https://www.marinetraffic.com/en/ais/embed/{$params}";
-
-        
-        return [
-            'success' => true,
-            
-           
-            'total_kapal_aktif'       => $baseShips . ' Vessel',
-            'kargo_kontainer'         => round($baseShips * 0.5) . ' Unit',
-            'tanker_minyak'           => round($baseShips * 0.3) . ' Unit',
-            'kapal_tunda'             => round($baseShips * 0.2) . ' Unit',
-            'status_kepadatan'        => $status,
-            'warna_status'            => $statusColor,
-            'estimasi_antrean_sandar' => $waitingTime . ' Jam',
-            'jarak_pandang_laut'      => rand(9, 14) . ' NM',
-            
-            
-            'embed_url'               => $embedUrl,
-            'html_iframe'             => '<iframe name="marinetraffic" id="marinetraffic" width="100%" height="450" src="' . $embedUrl . '" frameborder="0" scrolling="no"></iframe>',
-            
-            'sumber'                  => 'AIS Intelligence Engine (Hybrid System)'
-        ];
     }
 }
