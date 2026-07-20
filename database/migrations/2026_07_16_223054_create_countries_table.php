@@ -5,9 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
-    /**
-     * Run the migrations.
-     */
+    
     public function up(): void
     {
         Schema::create('countries', function (Blueprint $table) {
@@ -17,7 +15,7 @@ return new class extends Migration {
             $table->string('currency_code', 3);
             $table->string('language');
             
-            // DATA MAKROEKONOMI (World Bank)
+            
             $table->decimal('gdp', 15, 2)->nullable();
             $table->decimal('inflation_rate', 5, 2)->nullable();
             $table->bigInteger('population')->nullable();
@@ -28,9 +26,7 @@ return new class extends Migration {
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
+    
     public function down(): void
     {
         Schema::dropIfExists('countries');

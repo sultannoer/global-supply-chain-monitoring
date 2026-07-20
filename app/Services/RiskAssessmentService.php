@@ -4,12 +4,12 @@ namespace App\Services;
 
 use App\Models\Port;
 use App\Models\Shipment;
+use App\Models\RiskAlert;
 
 class RiskAssessmentService
 {
     /**
      * Menghitung skor risiko akumulatif untuk Pelabuhan (Skala 0 - 100)
-     * Berdasarkan parameter cuaca live dari Open-Meteo.
      */
     public function calculatePortRisk(Port $port): int
     {
@@ -25,7 +25,6 @@ class RiskAssessmentService
         }
 
         // 2. FAKTOR KECEPATAN ANGIN (Bobot Maksimal: 30 Poin)
-        // Angin di atas 40 km/jam mulai mengganggu aktivitas bongkar muat crane kontainer
         $wind = (float) $port->wind_speed;
         if ($wind > 50) {
             $score += 30;
@@ -45,18 +44,28 @@ class RiskAssessmentService
             $score += 5;
         }
 
-        // Pastikan skor tidak meluncur melebihi batas 100 atau kurang dari 0
         $finalScore = min(max($score, 0), 100);
-
-        // Simpan langsung hasil kalkulasi ke database lokal pelabuhan ini
         $port->update(['risk_score' => $finalScore]);
+
+        // 🚨 TRIGGER OTOMATIS: Catat log jika pelabuhan masuk zona bahaya
+        if ($finalScore >= 50) {
+            RiskAlert::updateOrCreate(
+                ['port_id' => $port->id, 'is_resolved' => false, 'risk_type' => 'WEATHER'],
+                [
+                    'alert_level' => $finalScore >= 75 ? 'CRITICAL' : 'WARNING',
+                    'message' => "⚠️ PELABUHAN RAWAN: Terminal [{$port->name}] terdeteksi memiliki Skor Risiko tinggi ({$finalScore}/100) akibat cuaca buruk. Operasional crane kontainer berpotensi tertunda."
+                ]
+            );
+        } else {
+            // Jika cuaca membaik, tandai alert sebelumnya sebagai resolved
+            RiskAlert::where('port_id', $port->id)->update(['is_resolved' => true]);
+        }
 
         return $finalScore;
     }
 
     /**
      * Menghitung skor risiko akumulatif untuk Perjalanan Kapal / Shipment (Skala 0 - 100)
-     * Menggabungkan risiko cuaca pelabuhan tujuan dan stabilitas inflasi ekonomi negara tujuan.
      */
     public function calculateShipmentRisk(Shipment $shipment): int
     {
@@ -65,13 +74,11 @@ class RiskAssessmentService
 
         // 1. FAKTOR KONDISI CUACA DI PELABUHAN TUJUAN (Bobot: 60%)
         if ($destinationPort) {
-            // Ambil skor risiko pelabuhan tujuan yang sudah dihitung sebelumnya
             $portRisk = $destinationPort->risk_score;
             $score += ($portRisk * 0.6);
         }
 
         // 2. FAKTOR KERAWANAN EKONOMI / INFLASI NEGARA TUJUAN (Bobot: 40%)
-        // Inflasi tinggi (> 10%) meningkatkan risiko fluktuasi nilai mata uang saat kapal bersandar
         if ($destinationPort && $destinationPort->country) {
             $inflation = (float) $destinationPort->country->inflation_rate;
             
@@ -83,13 +90,25 @@ class RiskAssessmentService
                 $score += 10;
             }
         } else {
-            $score += 15; // Default score jika data World Bank belum masuk
+            $score += 15; 
         }
 
         $finalScore = min(max((int) $score, 0), 100);
-
-        // Update skor risiko dinamis kapal ke database lokal
         $shipment->update(['risk_score' => $finalScore]);
+
+        // 🚨 TRIGGER OTOMATIS: Catat log jika kapal kargo menghadapi risiko tinggi
+        if ($finalScore >= 45) {
+            RiskAlert::updateOrCreate(
+                ['shipment_id' => $shipment->id, 'is_resolved' => false],
+                [
+                    'alert_level' => $finalScore >= 70 ? 'CRITICAL' : 'WARNING',
+                    'risk_type' => $inflation > 12 ? 'ECONOMIC' : 'WEATHER',
+                    'message' => "🚢 ANCAMAN RUTE: Kapal [{$shipment->vessel_name}] dengan manifes #{$shipment->tracking_number} menghadapi akumulasi risiko kargo ({$finalScore}/100) menuju pelabuhan target."
+                ]
+            );
+        } else {
+            RiskAlert::where('shipment_id', $shipment->id)->update(['is_resolved' => true]);
+        }
 
         return $finalScore;
     }

@@ -20,3 +20,5 @@ Route::delete('/cargo/vessel/{id}', [PortController::class, 'destroyVessel'])->n
 Route::post('/cargo/vessel/{id}/update-coordinates', [App\Http\Controllers\PortController::class, 'updateVesselCoordinates'])->name('vessel.update-coordinates');
 
 Route::get('/cargo/history', [PortController::class, 'history'])->name('cargo.history');
+
+Route::get('/countries/{code}', [App\Http\Controllers\PortController::class, 'showCountry'])->name('countries.show');

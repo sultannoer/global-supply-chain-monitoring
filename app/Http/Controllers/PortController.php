@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Port;
+use App\Models\Shipment;
 use App\Services\WeatherService;
 use App\Services\EconomicService; 
 use App\Services\ExchangeRateService;
@@ -42,7 +43,8 @@ class PortController extends Controller
     {
         $search = $request->input('search');
 
-        $ports = Port::with(['country', 'inboundShipments'])->get();
+        // Mengambil seluruh data port dari database beserta relasi negaranya
+        $ports = Port::with(['country'])->get();
 
         $allLiveRates = Cache::remember("global_live_forex_rates", 3600, function() {
             try {
@@ -92,16 +94,70 @@ class PortController extends Controller
             })->values();
         }
 
+        $activeCountryCodes = $ports->pluck('country_code')->unique()->filter()->toArray();
+
+        $enrichedCountries = \App\Models\Country::whereIn('code', $activeCountryCodes)->get()->map(function ($country) use ($allLiveRates, $ports) {
+            $currencyCode = $country->currency_code ?? 'USD';
+            $rate = $allLiveRates[$currencyCode] ?? 1.00;
+
+            // Mencari pelabuhan terdekat hanya sebagai fallback darurat jika koordinat negara benar-benar NULL
+            $relatedPort = $ports->firstWhere('country_code', $country->code);
+            $fallbackLat = $relatedPort ? (float)$relatedPort->latitude : 0.0;
+            $fallbackLng = $relatedPort ? (float)$relatedPort->longitude : 0.0;
+
+            // Memprioritaskan koordinat daratan tengah asli milik negara dari tabel countries
+            $countryLat = !is_null($country->latitude) ? (float)$country->latitude : $fallbackLat;
+            $countryLng = !is_null($country->longitude) ? (float)$country->longitude : $fallbackLng;
+
+            return [
+                'id' => $country->code,
+                'name' => $country->name ?? 'Sovereign Hub Region',
+                'lat' => $countryLat, 
+                'lng' => $countryLng,
+                'code' => strtolower($country->code),
+                'currency' => $currencyCode,
+                'rate' => $rate,
+                'region' => $country->region ?? 'Global Strategic Hub',
+                'language' => $country->language ?? 'Official Language',
+                'gdp' => $country->gdp && $country->gdp > 0 
+                    ? '$' . number_format($country->gdp / 1e9, 1) . 'B' 
+                    : '$900B',
+                'inflation' => ($country->inflation_rate && $country->inflation_rate > 0 ? $country->inflation_rate : '2.3') . '%',
+                'population' => $country->population ? number_format($country->population) : 'Integrated',
+                'export' => $country->export_volume && $country->export_volume > 0 ? '$' . number_format($country->export_volume / 1e9, 1) . 'B' : '$250B',
+                'import' => $country->import_volume && $country->import_volume > 0 ? '$' . number_format($country->import_volume / 1e9, 1) . 'B' : '$210B',
+            ];
+        })->values()->toArray();
+
         $enrichedStorms = [
             ['name' => 'Badai Tropis Selat Malaka', 'lat' => 4.00, 'lng' => 100.00, 'radius_km' => 450, 'wind_speed' => '25 m/s'],
             ['name' => 'Siklon Tropis Filipina Selatan', 'lat' => 8.50, 'lng' => 126.20, 'radius_km' => 350, 'wind_speed' => '30 m/s']
         ];
 
-        $allCustomVessels = session('active_custom_vessels', []);
+        $dbShipments = Shipment::with(['originPort', 'destinationPort'])->get();
+        $allCustomVessels = $dbShipments->map(function($s) {
+            return [
+                'id' => $s->id,
+                'name' => $s->vessel_name,
+                'lat' => (float) ($s->originPort->latitude ?? 0),
+                'lng' => (float) ($s->originPort->longitude ?? 0),
+                'live_lat' => (float) ($s->current_lat ?? $s->originPort->latitude ?? 0),
+                'live_lng' => (float) ($s->current_lng ?? $s->originPort->longitude ?? 0),
+                'origin_name' => $s->originPort->name ?? 'Unknown',
+                'dest_name' => $s->destinationPort->name ?? 'Unknown',
+                'dest_lat' => (float) ($s->destinationPort->latitude ?? 0),
+                'dest_lng' => (float) ($s->destinationPort->longitude ?? 0),
+                'cargo_weight' => $s->cargo_weight,
+                'currency_value' => $s->initial_cost_usd,
+                'status' => $s->status,
+                'step' => $s->step
+            ];
+        })->toArray();
+
         $enrichedVessels = array_map(function ($vessel) use ($enrichedPorts, $enrichedStorms) {
             $destPort = collect($enrichedPorts)->firstWhere('name', $vessel['dest_name']);
             
-            $insideStorm = false;
+            $insideStormStatic = false;
             $currentLat = $vessel['live_lat'] ?? $vessel['lat'];
             $currentLng = $vessel['live_lng'] ?? $vessel['lng'];
 
@@ -114,14 +170,21 @@ class PortController extends Controller
                 $km = $miles * 1.609344;
                 
                 if ($km <= $storm['radius_km']) {
-                    $insideStorm = true;
+                    $insideStormStatic = true;
                     break;
                 }
             }
 
-            $midOceanTemp = $insideStorm ? 24 : rand(26, 30);
-            $midOceanWind = $insideStorm ? 29 : (($vessel['cargo_weight'] ?? 100) > 150 ? 22 : 8); 
-            $stormRisk = $insideStorm ? '⚠️ ALERT: Critical Storm Impact Encountered' : ($midOceanWind > 15 ? '⚠️ ALERT: High Storm Risk Encountered' : '🌤️ Calm Sea Condition');
+            $marineWeather = $this->weatherService->getMarineWeather($currentLat, $currentLng);
+            
+            $insideStorm = $insideStormStatic || $marineWeather['is_storm_risk'];
+            $midOceanTemp = $marineWeather['temp'];
+            $midOceanWind = $marineWeather['wind'];
+            $rain = $marineWeather['rain'];
+
+            $stormRisk = $insideStorm 
+                ? '⚠️ ALERT: Critical Storm Impact Encountered' 
+                : ($midOceanWind > 15 ? '⚠️ ALERT: High Wind Risk Encountered' : '🌤️ Calm Sea Condition');
             
             $rate = $destPort['rate'] ?? 1.00;
             $lossImpact = $insideStorm ? '⚠️ LOSS METRIC: Devisa Penalty Applied (-15%)' : ($midOceanWind > 15 ? 'Potential Currency Loss (-1.2%)' : 'Stable (+0.4%)');
@@ -129,7 +192,7 @@ class PortController extends Controller
             return array_merge($vessel, [
                 'temp' => $midOceanTemp,
                 'wind' => $midOceanWind,
-                'rain' => $midOceanWind > 15 ? 12 : 1,
+                'rain' => $rain,
                 'storm_alert' => $stormRisk,
                 'exchange_rate' => $rate,
                 'currency_code' => $destPort['currency'] ?? 'USD',
@@ -139,25 +202,30 @@ class PortController extends Controller
             ]);
         }, $allCustomVessels);
 
-        return view('ports.index', compact('enrichedPorts', 'enrichedVessels', 'enrichedStorms', 'search'));
+        $activeAlerts = \App\Models\RiskAlert::with(['shipment', 'port'])
+                ->where('is_resolved', false)
+                ->orderBy('created_at', 'desc')
+                ->take(5)
+                ->get();
+
+        return view('ports.index', compact('enrichedPorts', 'enrichedCountries', 'enrichedVessels', 'enrichedStorms', 'search', 'activeAlerts'));
     }
 
     public function updateVesselCoordinates(Request $request, $id)
     {
-        $vessels = session('active_custom_vessels', []);
+        $shipment = Shipment::findOrFail($id);
+        $shipment->current_lat = (float) $request->input('live_lat');
+        $shipment->current_lng = (float) $request->input('live_lng');
         
-        foreach ($vessels as &$vessel) {
-            if ($vessel['id'] === $id) {
-                $vessel['live_lat'] = (float) $request->input('live_lat');
-                $vessel['live_lng'] = (float) $request->input('live_lng');
-                if ($request->has('step')) {
-                    $vessel['step'] = (int) $request->input('step');
-                }
-                break;
-            }
+        if ($request->has('step')) {
+            $shipment->step = (int) $request->input('step');
         }
         
-        session(['active_custom_vessels' => $vessels]);
+        if ($shipment->step >= 1500) {
+            $shipment->status = 'ARRIVED';
+        }
+        
+        $shipment->save();
         
         return response()->json(['status' => 'success']);
     }
@@ -166,40 +234,60 @@ class PortController extends Controller
     {
         $port = Port::with(['country', 'inboundShipments', 'outboundShipments'])->findOrFail($id);
         
+        $allShipments = $port->inboundShipments->merge($port->outboundShipments ?? collect([]));
+        foreach ($allShipments as $shipment) {
+            if ($shipment->status === 'ON_VOYAGE' || $shipment->status === 'DEPARTING') {
+                if (isset($this->marineService)) {
+                    try {
+                        $this->marineService->updateShipmentLocation($shipment);
+                    } catch (\Exception $e) {
+                        \Log::warning("MarineTraffic simulasi gagal untuk TRK-{$shipment->tracking_number}: " . $e->getMessage());
+                    }
+                }
+            }
+        }
+        $port->refresh(); 
+
         $countryCode = $port->country->code ?? 'IDN'; 
+        $apiStatus = 'OK'; 
 
-        Cache::remember("sync_country_data_" . $port->id, 86400, function() use ($port, $countryCode) {
-            if ($this->countryService) {
-                $this->countryService->fetchAndSyncCountry($countryCode);
-                $port->refresh(); 
-            }
+        try {
+            Cache::remember("sync_country_data_" . $port->id, 86400, function() use ($port, $countryCode) {
+                if ($this->countryService) {
+                    $this->countryService->fetchAndSyncCountry($countryCode);
+                    $port->refresh(); 
+                }
 
-            if ($this->economicService && $port->country) {
-                $this->economicService->updateCountryEconomicIndicators($port->country);
-                $port->refresh();
-            }
-            return true;
-        });
+                if ($this->economicService && $port->country) {
+                    $this->economicService->updateCountryEconomicIndicators($port->country);
+                    $port->refresh();
+                }
+                return true;
+            });
+        } catch (\Exception $e) {
+            \Log::error("Koneksi World Bank / REST Countries terganggu: " . $e->getMessage());
+            $apiStatus = 'FALLBACK_ACTIVE';
+        }
 
         $currencyCode = $port->country->currency_code ?? 'USD';
         
-        
         $liveForexRate = Cache::remember("live_rate_" . $currencyCode, 3600, function() use ($currencyCode) {
             try {
-                $response = Http::get("https://open.er-api.com/v6/latest/USD");
+                $response = Http::timeout(4)->get("https://open.er-api.com/v6/latest/USD");
                 if ($response->successful()) {
                     return $response->json("rates.{$currencyCode}") ?? 1.00;
                 }
-            } catch (\Exception $e) {}
+            } catch (\Exception $e) {
+                \Log::warning("Forex API gagal merespons, menggunakan kurs database internal.");
+            }
             return 1.00;
         });
 
-        
         $weatherTimeline = Cache::remember("weather_hourly_forecast_" . $port->id, 1800, function() use ($port) {
             try {
                 $lat = $port->latitude;
                 $lng = $port->longitude;
-                $response = Http::get("https://api.open-meteo.com/v1/forecast?latitude={$lat}&longitude={$lng}&hourly=temperature_2m&forecast_days=1");
+                $response = Http::timeout(4)->get("https://api.open-meteo.com/v1/forecast?latitude={$lat}&longitude={$lng}&hourly=temperature_2m&forecast_days=1");
                 
                 if ($response->successful() && isset($response->json()['hourly']['temperature_2m'])) {
                     $temps = $response->json()['hourly']['temperature_2m'];
@@ -215,18 +303,10 @@ class PortController extends Controller
 
         $forexTimeline = Cache::remember("forex_weekly_real_data_" . $currencyCode, 3600, function() use ($currencyCode, $liveForexRate) {
             try {
-               
-                $response = Http::get("https://open.er-api.com/v6/latest/USD");
+                $response = Http::timeout(4)->get("https://open.er-api.com/v6/latest/USD");
                 if ($response->successful() && isset($response->json()['rates'])) {
                     $current = $response->json()['rates'][$currencyCode] ?? $liveForexRate;
-                    
-                    return [
-                        $current * 0.993,
-                        $current * 0.997,
-                        $current * 1.002,
-                        $current * 0.996,
-                        $current
-                    ];
+                    return [ $current * 0.993, $current * 0.997, $current * 1.002, $current * 0.996, $current ];
                 }
             } catch (\Exception $e) {}
             return [$liveForexRate * 0.99, $liveForexRate * 0.995, $liveForexRate * 1.001, $liveForexRate * 0.998, $liveForexRate];
@@ -237,10 +317,20 @@ class PortController extends Controller
             'rate_against_usd' => $liveForexRate,
             'flag_url' => 'https://flagcdn.com/' . strtolower(substr($countryCode, 0, 2)) . '.svg',
             'weather_data' => $weatherTimeline,
-            'forex_data' => $forexTimeline
+            'forex_data' => $forexTimeline,
+            'api_status' => $apiStatus
         ];
 
-        $allCustomVessels = session('active_custom_vessels', []);
+        $dbShipments = Shipment::with(['originPort', 'destinationPort'])->get();
+        $allCustomVessels = $dbShipments->map(function($s) {
+            return [
+                'id' => $s->id,
+                'name' => $s->vessel_name,
+                'origin_name' => $s->originPort->name ?? 'Unknown',
+                'dest_name' => $s->destinationPort->name ?? 'Unknown',
+            ];
+        })->toArray();
+
         $customInboundVessels = array_filter($allCustomVessels, function ($vessel) use ($port) {
             return isset($vessel['dest_name']) && $vessel['dest_name'] === $port->name;
         });
@@ -321,26 +411,19 @@ class PortController extends Controller
         if (empty($vesselLabel)) { $vesselLabel = 'LOGIXCHAIN-CARRIER (#' . $request->vessel_id . ')'; }
 
         $originPort = Port::find($request->origin_port);
-        $destPort = Port::find($request->destination_port);
-
-        $newVesselData = [
-            'id'               => uniqid(), 
-            'name'             => strtoupper($vesselLabel),
-            'lat'              => (float) ($originPort->latitude ?? -6.1014),
-            'lng'              => (float) ($originPort->longitude ?? 106.8831),
-            'live_lat'         => (float) ($originPort->latitude ?? -6.1014),
-            'live_lng'         => (float) ($originPort->longitude ?? 106.8831),
-            'origin_name'      => $originPort->name ?? 'Pelabuhan Asal',
-            'dest_name'        => $destPort->name ?? 'Pelabuhan Tujuan',
-            'dest_lat'         => (float) ($destPort->latitude ?? 51.9488),
-            'dest_lng'         => (float) ($destPort->longitude ?? 4.1430),
-            'cargo_weight'     => $request->cargo_weight,
-            'currency_value'   => $request->currency_value,
-            'status'           => 'DEPARTING',
-            'step'             => 0 
-        ];
-
-        $request->session()->push('active_custom_vessels', $newVesselData);
+        
+        Shipment::create([
+            'tracking_number'     => 'TRK-' . strtoupper(uniqid()),
+            'vessel_name'         => strtoupper($vesselLabel),
+            'origin_port_id'      => $request->origin_port,
+            'destination_port_id' => $request->destination_port,
+            'current_lat'         => $originPort->latitude ?? -6.1014,
+            'current_lng'         => $originPort->longitude ?? 106.8831,
+            'initial_cost_usd'    => $request->currency_value,
+            'cargo_weight'        => $request->cargo_weight,
+            'status'              => 'DEPARTING',
+            'step'                => 0
+        ]);
 
         return redirect()->route('cargo.create')->with(
             'success', 
@@ -350,9 +433,7 @@ class PortController extends Controller
 
     public function destroyVessel($id)
     {
-        $vessels = session('active_custom_vessels', []);
-        $filteredVessels = array_filter($vessels, function ($vessel) use ($id) { return $vessel['id'] !== $id; });
-        session(['active_custom_vessels' => array_values($filteredVessels)]);
+        Shipment::destroy($id);
 
         return response()->json([
             'status' => 'success',
@@ -362,38 +443,29 @@ class PortController extends Controller
 
     public function history(Request $request)
     {
-        $ports = Port::with('country')->get();
-        $allCustomVessels = session('active_custom_vessels', []);
-        
-        $completedVesselsFilter = array_filter($allCustomVessels, function ($vessel) {
-            return isset($vessel['step']) && (int)$vessel['step'] >= 1500;
-        });
+        $dbCompletedShipments = Shipment::with(['originPort', 'destinationPort'])
+                                        ->where('step', '>=', 1500)
+                                        ->get();
 
         $completedVessels = [];
 
-        foreach ($completedVesselsFilter as $vessel) {
-            $originPort = $ports->first(function($p) use ($vessel) {
-                return strtolower(trim($p->name)) === strtolower(trim($vessel['origin_name']));
-            });
-            
-            $destPort = $ports->first(function($p) use ($vessel) {
-                return strtolower(trim($p->name)) === strtolower(trim($vessel['dest_name']));
-            });
+        foreach ($dbCompletedShipments as $shipment) {
+            $originName = $shipment->originPort->name ?? 'Unknown';
+            $destName = $shipment->destinationPort->name ?? 'Unknown';
 
-            $originISO = $originPort->country->code ?? null;
-            if (!$originISO) {
-                $originISO = str_contains(strtolower($vessel['origin_name']), 'klang') ? 'MYS' : (str_contains(strtolower($vessel['origin_name']), 'hamburg') ? 'DEU' : (str_contains(strtolower($vessel['origin_name']), 'moresby') ? 'PNG' : 'IDN'));
-            }
+            $originISO = $shipment->originPort->country->code ?? 'IDN';
+            $destISO = $shipment->destinationPort->country->code ?? 'NLD';
 
-            $destISO = $destPort->country->code ?? null;
-            if (!$destISO) {
-                $destISO = str_contains(strtolower($vessel['dest_name']), 'catania') ? 'ITA' : (str_contains(strtolower($vessel['dest_name']), 'vladivostok') ? 'RUS' : (str_contains(strtolower($vessel['dest_name']), 'dublin') ? 'IRL' : 'NLD'));
-            }
-
-            $vessel['origin_country_iso'] = strtoupper(trim($originISO));
-            $vessel['dest_country_iso'] = strtoupper(trim($destISO));
-
-            $completedVessels[] = $vessel;
+            $completedVessels[] = [
+                'id'                 => $shipment->id,
+                'name'               => $shipment->vessel_name,
+                'origin_name'        => $originName,
+                'dest_name'          => $destName,
+                'cargo_weight'       => $shipment->cargo_weight,
+                'currency_value'     => $shipment->initial_cost_usd,
+                'origin_country_iso' => strtoupper($originISO),
+                'dest_country_iso'   => strtoupper($destISO),
+            ];
         }
 
         $totalCompleted = count($completedVessels);
@@ -402,4 +474,127 @@ class PortController extends Controller
 
         return view('ports.history', compact('completedVessels', 'totalCompleted', 'totalCargoDelivered', 'totalOperationalCost'));
     }
+
+    public function showCountry($code)
+    {
+        $codeUpper = strtoupper($code);
+        
+        // 1. Ambil atau buat data dasar negara di DB lokal
+        $country = \App\Models\Country::firstOrCreate(
+            ['code' => $codeUpper],
+            ['name' => 'Sovereign Hub Region', 'currency_code' => 'USD']
+        );
+
+        // Paksa bersihkan cache halaman ini agar selalu mengambil data segar dari API
+        Cache::forget("sovereign_country_api_v3_" . $codeUpper);
+
+        // 2. KONSUMSI REST COUNTRIES & WORLD BANK SECARA FULL DINAMIS
+        $apiData = Cache::remember("sovereign_country_api_v3_" . $codeUpper, 86400, function() use ($codeUpper) {
+            
+            // Siapkan struktur data default (Mekanisme pertahanan jika API luar gagal merespons)
+            $data = [
+                'name' => 'Sovereign State', 
+                'region' => 'Global Logistics Hub', 
+                'language' => 'Official Language',
+                'currency' => 'USD', 
+                'currency_name' => 'US Dollar', 
+                'cca2' => strtolower(substr($codeUpper, 0, 2)), // Fallback awal bendera (2 digit)
+                'gdp' => 0, 'inflation' => 0, 'population' => 0, 'export' => 0, 'import' => 0, 
+                'rate_to_usd' => 1.00
+            ];
+
+            // 🅰️ 100% DINAMIS: Tembak REST Countries API dengan Bypass SSL Validator
+            try {
+                $restResponse = Http::withoutVerifying()
+                                    ->timeout(10)
+                                    ->get("https://restcountries.com/v3.1/alpha/{$codeUpper}");
+
+                if ($restResponse->successful() && isset($restResponse->json()[0])) {
+                    $cData = $restResponse->json()[0];
+                    
+                    // Ekstraksi Nama Negara Resmi & Region
+                    $data['name'] = $cData['name']['common'] ?? $data['name'];
+                    $data['region'] = $cData['region'] ?? $data['region'];
+                    
+                    // Ekstraksi Kode 2 Digit Resmi dari API untuk Gambar Bendera (Pasti Akurat, misal UKR -> ua)
+                    if (isset($cData['cca2'])) {
+                        $data['cca2'] = strtolower($cData['cca2']);
+                    }
+                    
+                    // Ekstraksi Semua Bahasa yang Digunakan di Negara Terkait
+                    if (isset($cData['languages']) && is_array($cData['languages'])) {
+                        $data['language'] = implode(', ', array_values($cData['languages']));
+                    }
+                    
+                    // Ekstraksi Simbol & Nama Mata Uang Resmi Negara
+                    if (isset($cData['currencies']) && is_array($cData['currencies'])) {
+                        $currCode = array_key_first($cData['currencies']);
+                        $data['currency'] = strtoupper($currCode);
+                        $data['currency_name'] = $cData['currencies'][$currCode]['name'] ?? 'Official Currency';
+                    }
+                }
+            } catch (\Exception $e) {
+                \Log::warning("REST Countries API bermasalah untuk {$codeUpper}: " . $e->getMessage());
+            }
+
+            // 🅱️ DINAMIS: Tembak World Bank API untuk Indikator Makroekonomi
+            try {
+                // Gross Domestic Product (GDP)
+                $gdpRes = Http::withoutVerifying()->timeout(5)->get("https://api.worldbank.org/v2/country/{$codeUpper}/indicator/NY.GDP.MKTP.CD?format=json&per_page=1");
+                if ($gdpRes->successful() && isset($gdpRes->json()[1][0]['value'])) {
+                    $data['gdp'] = (float) $gdpRes->json()[1][0]['value'];
+                }
+                // Laju Inflasi
+                $infRes = Http::withoutVerifying()->timeout(5)->get("https://api.worldbank.org/v2/country/{$codeUpper}/indicator/FP.CPI.TOTL.ZG?format=json&per_page=1");
+                if ($infRes->successful() && isset($infRes->json()[1][0]['value'])) {
+                    $data['inflation'] = (float) $infRes->json()[1][0]['value'];
+                }
+                // Jumlah Populasi
+                $popRes = Http::withoutVerifying()->timeout(5)->get("https://api.worldbank.org/v2/country/{$codeUpper}/indicator/SP.POP.TOTL?format=json&per_page=1");
+                if ($popRes->successful() && isset($popRes->json()[1][0]['value'])) {
+                    $data['population'] = (int) $popRes->json()[1][0]['value'];
+                }
+                // Volume Ekspor
+                $expRes = Http::withoutVerifying()->timeout(5)->get("https://api.worldbank.org/v2/country/{$codeUpper}/indicator/NE.EXP.GNFS.CD?format=json&per_page=1");
+                if ($expRes->successful() && isset($expRes->json()[1][0]['value'])) {
+                    $data['export'] = (float) $expRes->json()[1][0]['value'];
+                }
+                // Volume Impor
+                $impRes = Http::withoutVerifying()->timeout(5)->get("https://api.worldbank.org/v2/country/{$codeUpper}/indicator/NE.IMP.GNFS.CD?format=json&per_page=1");
+                if ($impRes->successful() && isset($impRes->json()[1][0]['value'])) {
+                    $data['import'] = (float) $impRes->json()[1][0]['value'];
+                }
+            } catch (\Exception $e) {}
+
+            // 🅲️ DINAMIS: Tembak Exchange Rate API Menggunakan Kode Mata Uang Hasil REST Countries
+            try {
+                $targetCurr = $data['currency']; 
+                $forexRes = Http::withoutVerifying()->timeout(5)->get("https://open.er-api.com/v6/latest/USD");
+                if ($forexRes->successful() && isset($forexRes->json()['rates'][$targetCurr])) {
+                    $data['rate_to_usd'] = (float) $forexRes->json()['rates'][$targetCurr];
+                }
+            } catch (\Exception $e) {}
+
+            return $data;
+        });
+
+        // 3. Sinkronisasikan secara otomatis data hasil API ke dalam database lokal kamu
+        $country->update([
+            'name' => $apiData['name'] !== 'Sovereign State' ? $apiData['name'] : $country->name,
+            'region' => $apiData['region'],
+            'language' => $apiData['language'],
+            'currency_code' => $apiData['currency'],
+            'gdp' => $apiData['gdp'] > 0 ? $apiData['gdp'] : $country->gdp,
+            'inflation_rate' => $apiData['inflation'] > 0 ? $apiData['inflation'] : $country->inflation_rate,
+            'population' => $apiData['population'] > 0 ? $apiData['population'] : $country->population,
+            'export_volume' => $apiData['export'] > 0 ? $apiData['export'] : $country->export_volume,
+            'import_volume' => $apiData['import'] > 0 ? $apiData['import'] : $country->import_volume,
+        ]);
+
+        // 4. Ambil infrastruktur pelabuhan terkait dari DB
+        $relatedPorts = \App\Models\Port::where('country_code', $country->code)->get();
+
+        return view('ports.countries', compact('country', 'apiData', 'relatedPorts'));
+    }
+    
 }

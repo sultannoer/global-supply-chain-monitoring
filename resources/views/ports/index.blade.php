@@ -2,14 +2,16 @@
 
 @section('content')
 <div class="container-fluid p-0 bg-dark text-white min-vh-100 overflow-x-hidden" style="font-family: 'Segoe UI', Roboto, sans-serif;">
-   
+    <!-- CONTAINER ELEMENT DATA JANGKAR AMAN DARI BLOKIR BROWSER -->
     <div id="logixchain-radar-data" style="display: none;" 
          data-ports='@json($enrichedPorts)' 
+         data-countries='@json($enrichedCountries ?? [])'
          data-vessels='@json($enrichedVessels)' 
          data-storms='@json($enrichedStorms ?? [])'>
     </div>
 
     <div class="row g-0 min-vh-100">
+        <!-- SIDEBAR KIRI: NAVIGASI OPERASIONAL GLOBAL -->
         <div class="col-lg-2 bg-black bg-opacity-50 border-end border-secondary border-opacity-25 d-flex flex-column justify-content-between p-3" style="min-height: 100vh;">
             <div>
                 <div class="d-flex align-items-center gap-2 mb-4 px-2">
@@ -34,26 +36,65 @@
             </div>
         </div>
 
+        <!-- PANEL TENGAH: MONITOR RADAR PETA UTAMA -->
         <div class="col-lg-7 d-flex flex-column h-100" style="min-height: 100vh;">
             <div class="bg-black bg-opacity-25 border-bottom border-secondary border-opacity-25 d-flex justify-content-between align-items-center px-4 py-3">
                 <div>
                     <h5 class="mb-0 fw-bold">Global Supply Chain Radar</h5>
                     <small class="text-white-50 text-uppercase" style="font-size: 11px; letter-spacing: 0.5px;">Control Tower Terminal Operations</small>
                 </div>
-                <div class="d-flex gap-3 align-items-center"><span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 py-2 px-3 rounded-pill small fw-semibold"><span class="spinner-grow spinner-grow-sm me-1 text-danger align-middle"></span> Live Vessel Sync Active</span></div>
+                <div class="d-flex gap-3 align-items-center">
+                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 py-2 px-3 rounded-pill small fw-semibold">
+                        <span class="spinner-grow spinner-grow-sm me-1 text-danger align-middle"></span> Live Vessel Sync Active
+                    </span>
+                </div>
             </div>
-            <div class="flex-grow-1 position-relative" style="height: calc(100vh - 72px); width: 100%;"><div id="fullScreenDarkMap" style="height: 100%; width: 100%; background-color: #0f1115;"></div></div>
+            <div class="flex-grow-1 position-relative" style="height: calc(100vh - 72px); width: 100%;">
+                <div id="fullScreenDarkMap" style="height: 100%; width: 100%; background-color: #0f1115;"></div>
+            </div>
         </div>
 
+        <!-- SIDEBAR KANAN: LIVE AUTOMATED EARLY WARNING SYSTEM -->
         <div class="col-lg-3 bg-black bg-opacity-40 border-start border-secondary border-opacity-25 d-flex flex-column p-4" style="min-height: 100vh; max-height: 100vh; overflow-y: auto;">
             <div class="mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="text-uppercase small fw-bold tracking-wider text-danger mb-0"><i class="bi bi-rss-fill text-danger"></i> Live Alert Feed</h6>
-                    <small class="text-muted" style="font-size: 11px;">19 Jul 2026</small>
+                    <h6 class="text-uppercase small fw-bold tracking-wider text-danger mb-0"><i class="bi bi-exclamation-triangle-fill text-danger"></i> Automated Early Warning System</h6>
+                    <small class="text-muted font-monospace" style="font-size: 11px;">{{ now()->format('d M Y') }}</small>
+                </div>
+                
+                <!-- CONTAINER LIVE RISK ALERT INTEGRATION FROM DATABASE -->
+                <div id="riskAlertLiveFeedBlock" class="d-flex flex-column gap-2 mb-3">
+                    @if(isset($activeAlerts) && $activeAlerts->count() > 0)
+                        @foreach($activeAlerts as $alert)
+                            @php
+                                $badgeColor = $alert->alert_level === 'CRITICAL' ? 'danger' : 'warning';
+                                $iconType = $alert->risk_type === 'ECONOMIC' ? 'bi-cash-coin' : ($alert->risk_type === 'GEOPOLITICS' ? 'bi-globe-asia-australia' : 'bi-cloud-lightning-rain-fill');
+                            @endphp
+                            <div class="p-2.5 rounded border border-{{ $badgeColor }} border-opacity-20 bg-{{ $badgeColor }} bg-opacity-10 animate__animated animate__headShake">
+                                <div class="d-flex justify-content-between align-items-center border-bottom border-light border-opacity-10 pb-1 mb-2" style="font-size: 10px;">
+                                    <span class="fw-bold text-{{ $badgeColor }} text-uppercase"><i class="bi {{ $iconType }}"></i> {{ $alert->alert_level }} {{ $alert->risk_type }}</span>
+                                    <small class="text-white-50 font-monospace">{{ $alert->created_at->diffForHumans() }}</small>
+                                </div>
+                                <p class="mb-0 small text-white-50 style-text-alert" style="font-size: 11px; line-height:1.4; text-align:justify;">
+                                    {{ $alert->message }}
+                                </p>
+                            </div>
+                        @endforeach
+                    @else
+                        <div class="bg-success bg-opacity-10 border border-success border-opacity-20 p-3 rounded text-center text-success small">
+                            <i class="bi bi-shield-check d-block mb-1 fs-4"></i> Satelit SCRM mengonfirmasi: Jalur pelayaran global dan stabilitas ekonomi kliring 100% aman.
+                        </div>
+                    @endif
                 </div>
 
+                <div class="d-flex justify-content-between align-items-center mb-3 mt-4">
+                    <h6 class="text-uppercase small fw-bold tracking-wider text-info mb-0"><i class="bi bi-rss-fill text-info"></i> Sensor Koordinat Pelayaran</h6>
+                </div>
+                
+                <!-- CONTAINER UTAMA FEED TRANSPONDER KKOORDINAT -->
                 <div id="radarNotificationFeed" class="d-flex flex-column gap-3"></div>
 
+                <!-- DAFTAR KAPAL YANG SUDAH SAMPAI -->
                 <div id="vesselArrivalContainerZone" class="mt-3">
                     @foreach($enrichedVessels as $v)
                         @if(($v['step'] ?? 0) >= 1500)
@@ -77,7 +118,7 @@
 
 @push('styles')
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous" />
-<link class="a" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" crossorigin="anonymous">
 <style>
     .hover-light:hover { background-color: rgba(255, 255, 255, 0.05); color: #ffffff !important; }
@@ -99,14 +140,30 @@
         
         var dataContainer = document.getElementById('logixchain-radar-data');
         var portDataList = JSON.parse(dataContainer.getAttribute('data-ports') || '[]');
+        var countryDataList = JSON.parse(dataContainer.getAttribute('data-countries') || '[]');
         var vesselDataList = JSON.parse(dataContainer.getAttribute('data-vessels') || '[]');
         var stormDataList = JSON.parse(dataContainer.getAttribute('data-storms') || '[]');
 
         var liveVesselStatusMemory = {};
 
-        map = L.map('fullScreenDarkMap', { zoomControl: false }).setView([12.0, 105.0], 4);
+        // 🔒 FIX PETA BERULANG: Batasi layar peta agar tidak menggambar duplikat dunia ke samping
+        var maxWorldBounds = L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180));
+
+        map = L.map('fullScreenDarkMap', { 
+            zoomControl: false,
+            minZoom: 2,
+            maxBounds: maxWorldBounds,
+            maxBoundsViscosity: 1.0 
+        }).setView([12.0, 105.0], 4);
+
         L.control.zoom({ position: 'bottomleft' }).addTo(map);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CartoDB' }).addTo(map);
+
+        // noWrap diaktifkan untuk mengunci peta agar tidak berulang tanpa batas ke samping kanan-kiri
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { 
+            attribution: '&copy; CartoDB',
+            noWrap: true,
+            bounds: maxWorldBounds
+        }).addTo(map);
 
         map.createPane('portPane');
         map.getPane('portPane').style.zIndex = '650';
@@ -127,7 +184,7 @@
             if (activeVesselsCount === 0) {
                 feedContainer.innerHTML = `
                     <div class="bg-dark bg-opacity-40 border border-secondary border-opacity-15 p-3 rounded text-center text-muted small">
-                        <i class="bi bi-radar d-block mb-1 fs-4"></i> Menyinkronkan pemindai transponder armada...
+                        <i class="bi bi-radar d-block mb-1 fs-4"></i> Menyinkronkan pemindai transponder...
                     </div>`;
                 return;
             }
@@ -136,13 +193,13 @@
             for (var id in liveVesselStatusMemory) {
                 var v = liveVesselStatusMemory[id];
                 var stormClass = v.isThreatened 
-                    ? "bg-danger bg-opacity-10 border-start border-3 border-danger mb-2 p-2.5 rounded animate__animated animate__flash"
+                    ? "bg-danger bg-opacity-10 border-start border-3 border-danger mb-2 p-2.5 rounded animate__animated animate__pulse animate__infinite"
                     : "bg-dark bg-opacity-50 border-start border-3 border-info mb-2 p-2.5 rounded";
                 var stormTitleColor = v.isThreatened ? "text-danger" : "text-info";
                 var stormIcon = v.isThreatened ? "⚠️" : "🌤️";
 
                 var matchedPort = portDataList.find(p => p.name.trim().toLowerCase() === v.portName.trim().toLowerCase());
-                var weatherDetailsHtml = `Menghubungkan sensor terminal ${v.portName}...`;
+                var weatherDetailsHtml = `Sensor regional terputus...`;
                 
                 if (matchedPort) {
                     var wRiskColor = matchedPort.wind > 18 ? '#ef4444' : '#4ade80';
@@ -181,27 +238,24 @@
             var baseRate = parseFloat(currentRate) || 1.0;
             labelCurrency = labelCurrency.toUpperCase();
 
-            var textSeed = 0;
-            for (var i = 0; i < labelCurrency.length; i++) {
-                textSeed += labelCurrency.charCodeAt(i) * (i + 1);
-            }
+            var step1 = baseRate * (1 - (Math.random() * 0.005));
+            var step2 = baseRate * (1 + (Math.random() * 0.004));
+            var step3 = baseRate * (1 - (Math.random() * 0.002));
+            var step4 = baseRate;
 
-
-            var wave1 = 0.990 + (Math.sin(textSeed + 1.1) * 0.012);
-            var wave2 = 0.992 + (Math.cos(textSeed + 2.4) * 0.010);
-            var wave3 = 1.002 + (Math.sin(textSeed + 3.7) * 0.015);
-            var wave4 = 1.000; 
             currencyChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: ['08:00', '12:00', '16:00', '20:00'],
+                    labels: ['08:00', '12:00', '16:00', 'LIVE NOW'],
                     datasets: [{
                         label: 'Kurs USD / ' + labelCurrency, 
-                        data: [baseRate * wave1, baseRate * wave2, baseRate * wave3, baseRate * wave4],
-                        borderColor: '#38bdf8', 
-                        backgroundColor: 'rgba(56, 189, 248, 0.08)', 
+                        data: [step1, step2, step3, step4],
+                        borderColor: '#4ade80', 
+                        backgroundColor: 'rgba(74, 222, 128, 0.1)', 
                         borderWidth: 2, 
-                        pointBackgroundColor: '#38bdf8', 
+                        pointBackgroundColor: '#4ade80',
+                        pointBorderColor: '#ffffff',
+                        pointRadius: 4,
                         fill: true, 
                         tension: 0.35
                     }]
@@ -213,33 +267,108 @@
                         legend: { 
                             display: true, 
                             labels: { color: '#94a3b8', font: { size: 10, family: 'monospace' } } 
-                        } 
+                        }
                     },
                     scales: { 
                         x: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.03)' } }, 
-                        y: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.03)' } } 
+                        y: { 
+                            ticks: { color: '#64748b', font: { size: 9 } }, 
+                            grid: { color: 'rgba(255,255,255,0.03)' },
+                            suggestedMin: baseRate * 0.99,
+                            suggestedMax: baseRate * 1.01
+                        } 
                     }
                 }
             });
         }
+
         if (typeof Chart !== 'undefined') initCurrencyChart('EUR', 0.92);
 
+        // 🚢 RENDER PENANDA LOKASI PELABUHAN FISIK (Bulatan Biru Elegan)
         portDataList.forEach(function(port) {
             var portMarker = L.circleMarker([parseFloat(port.lat), parseFloat(port.lng)], { radius: 6, fillColor: '#38bdf8', color: '#ffffff', weight: 1.5, fillOpacity: 0.9, pane: 'portPane' }).addTo(map);
             var portPopupContent = `
-                <div style="width: 330px; font-family: 'Courier New', monospace; font-size: 11px; color: #e2e8f0; line-height: 1.4; overflow: hidden;">
-                    <div style="padding: 8px 10px; background: #1e293b; border-bottom: 2px solid #0284c7; font-weight: bold; color: #38bdf8; display: flex; justify-content: space-between; align-items: center;"><span>⚓ PORT: ${port.name.toUpperCase()}</span><span style="font-size: 9px; background: #0369a1; padding: 2px 5px; border-radius: 3px; color: #fff;">ACTIVE</span></div>
-                    <div style="padding: 6px 10px; border-bottom: 1px solid #1e293b; font-size: 10px; color: #94a3b8;">📍 Lat/Lng: ${parseFloat(port.lat).toFixed(4)}, ${parseFloat(port.lng).toFixed(4)}<br>Region: 🌍 ${port.country.toUpperCase()}</div>
-                    <div style="padding: 8px 10px; border-bottom: 1px solid #1e293b; background: #1c1917;">🌤️ LIVE WEATHER: <span style="color:#4ade80;">${port.temp}°C</span> | Wind: ${port.wind} km/h | Risk: <span style="color:${port.wind > 18 ? '#f87171' : '#4ade80'}">${port.wind > 18 ? '⚠️ Medium' : 'Low'}</span></div>
-                    <div style="padding: 8px 10px; border-bottom: 1px solid #1e293b;">💰 FOREX IMPACT: Mata Uang ${port.currency} | <span style="color:#38bdf8; font-weight:bold;">1 USD = ${port.rate} ${port.currency}</span></div>
-                    <div style="padding: 8px 10px; border-bottom: 1px solid #1e293b;">📊 MACRO ECON: GDP ${port.gdp} | Inflation: <span style="color:#f87171;">${port.inflation}</span></div>
-                    <div style="padding: 8px 10px; border-bottom: 1px solid #334155; background: #1e1b4b; font-size: 10px;">🚨 STATUS MAP: <span style="font-style: italic; color: #cbd5e1;">"${port.news}"</span></div>
+                <div style="width: 340px; font-family: 'Courier New', monospace; font-size: 12px; color: #e2e8f0; line-height: 1.4;">
+                    <div style="padding: 8px 10px; background: #1e293b; border-bottom: 2px solid #0284c7; font-weight: bold; color: #38bdf8;">⚓ PORT LOGISTICS: ${port.name.toUpperCase()}</div>
+                    <div style="padding: 4px 10px; font-size: 11px; background: rgba(56, 189, 248, 0.1); color: #38bdf8; border-bottom: 1px solid #334155; text-align: center; font-weight: bold;">📡 RADAR STATUS: OPERATIONAL ACTIVE</div>
+                    <div style="padding: 8px 10px; border-bottom: 1px solid #334155;">📍 LAT/LNG HUB: ${parseFloat(port.lat).toFixed(4)}, ${parseFloat(port.lng).toFixed(4)}<br>Region Hub: 🌍 <strong>${port.country.toUpperCase()}</strong></div>
+                    <div style="padding: 8px 10px; border-bottom: 1px solid #334155; background: #1c1917;"><span style="color:#38bdf8; font-weight:bold;">🌤️ CLIMATE MATRIX:</span> Temp <span style="color:#4ade80;">${port.temp}°C</span> | Wind: ${port.wind} km/h</div>
+                    <div style="padding: 8px 10px; border-bottom: 1px solid #334155;">💰 MONETARY LINK: Valuta ${port.currency} | <span style="color:#4ade80; font-weight:bold;">1 USD = ${port.rate} ${port.currency}</span></div>
+                    <div style="padding: 8px 10px; border-bottom: 1px solid #334155; background: #0f172a;">📊 WORLD BANK MACRO: GDP ${port.gdp} | Inflation: <span style="color:#ef4444;">${port.inflation}</span></div>
                     <div style="padding: 8px; background: #0f172a; text-align: center;"><a href="/ports/${port.id}" style="display: block; width: 100%; padding: 6px 0; background: #0284c7; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 4px; text-align: center;">Buka Analitik Pelabuhan Complete →</a></div>
                 </div>`;
-
+            
             portMarker.bindPopup(portPopupContent).on('click', function() { initCurrencyChart(port.currency, port.rate); });
         });
 
+        // 🌍 RENDER PENANDA NEGARA (Pin Makro Emas Berlogo Bumi - Berbeda Kontras Dari Port Bulat)
+        countryDataList.forEach(function(country) {
+            var countryLat = parseFloat(country.lat);
+            var countryLng = parseFloat(country.lng);
+
+            var customCountryIcon = L.divIcon({
+                html: `
+                    <div style="position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                        <div class="animate__animated animate__ping animate__infinite animate__slower" style="position: absolute; width: 34px; height: 34px; background: rgba(251, 191, 36, 0.2); border-radius: 50%;"></div>
+                        <div style="position: relative; width: 30px; height: 30px; background: #78350f; border: 2px solid #fbbf24; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.4);">
+                            <i class="bi bi-globe-asia-australia text-warning" style="transform: rotate(45deg); font-size: 14px;"></i>
+                        </div>
+                    </div>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 30],
+                className: 'bg-transparent text-center'
+            });
+
+            var countryMarker = L.marker([countryLat, countryLng], { icon: customCountryIcon }).addTo(map);
+
+            var cCodeFixed = country.code === 'idn' ? 'id' : (country.code === 'chn' ? 'cn' : (country.code === 'usa' ? 'us' : (country.code === 'sgp' ? 'sg' : country.code.substring(0,2))));
+
+            // 🚀 TOMBOL BARU FIX: Menyematkan tautan analitik dinamis makro otonom negara di bagian paling bawah kontainer popup
+            var countryPopupContent = `
+                <div style="width: 340px; font-family: 'Courier New', monospace; font-size: 12px; color: #e2e8f0; line-height: 1.4;">
+                    <div style="padding: 8px 10px; background: #78350f; border-bottom: 2px solid #fbbf24; font-weight: bold; color: #fbbf24; display: flex; justify-content: space-between; align-items: center;">
+                        <span>🌍 SOVEREIGN STATE: ${country.name.toUpperCase()}</span>
+                        <img src="https://flagcdn.com/w40/${cCodeFixed}.png" style="height: 14px; border-radius: 2px; object-fit: cover;">
+                    </div>
+                    <div style="padding: 4px 10px; font-size: 11px; background: rgba(251, 191, 36, 0.1); color: #fbbf24; border-bottom: 1px solid #334155; text-align: center; font-weight: bold;">📊 INTELLIGENCE STATS: WORLD BANK SYNCED</div>
+                    
+                    <div style="padding: 8px 10px; border-bottom: 1px solid #334155;">
+                        🌐 GEOPOLITICAL REGION: <strong>${country.region.toUpperCase()}</strong><br>
+                        🗣️ DOMESTIC LANGUAGE  : <span style="color:#38bdf8;">${country.language}</span>
+                    </div>
+                    
+                    <div style="padding: 8px 10px; border-bottom: 1px solid #334155; background: #1c1917;">
+                        <span style="color:#fbbf24; font-weight:bold;">💰 CURRENCY & EXCHANGE RATE:</span><br>
+                        Mata Uang Terikat: <strong>${country.currency}</strong><br>
+                        Kurs Finansial   : <span style="color:#4ade80; font-weight:bold;">1 USD = ${country.rate} ${country.currency}</span>
+                    </div>
+                    
+                    <div style="padding: 8px 10px; border-bottom: 1px solid #334155; background: #0f172a;">
+                        <span style="color:#94a3b8; font-weight:bold;">📊 MACRO DATA INDICATORS:</span><br>
+                        • Volume PDB / GDP : <span style="color:#fff;">${country.gdp}</span><br>
+                        • Tingkat Inflasi  : <span style="color:#ef4444; font-weight:bold;">${country.inflation}</span><br>
+                        • Total Populasi   : <span style="color:#fff;">${country.population} Jiwa</span>
+                    </div>
+
+                    <div style="padding: 8px 10px; border-bottom: 1px solid #334155; background: #111827; font-size: 11px;">
+                        <span style="color:#4ade80; font-weight:bold;">🚢 GLOBAL TRADE BALANCE:</span><br>
+                        • Total Volume Ekspor : <span style="color:#4ade80;">${country.export}</span><br>
+                        • Total Volume Impor  : <span style="color:#38bdf8;">${country.import}</span>
+                    </div>
+
+                    <div style="padding: 8px; background: #0f172a; text-align: center;">
+                        <a href="/countries/${country.code}" style="display: block; width: 100%; padding: 7px 0; background: #78350f; color: #fbbf24; border: 1px solid #fbbf24; text-decoration: none; font-weight: bold; border-radius: 4px; text-align: center; font-size: 11px;">
+                            Buka Detail Makro Sovereign Negara →
+                        </a>
+                    </div>
+                </div>`;
+            
+            countryMarker.bindPopup(countryPopupContent).on('click', function() { 
+                initCurrencyChart(country.currency, country.rate); 
+            });
+        });
+
+        // 🚢 KONFIGURASI TRANSPONDER DAN SIMULASI PERGERAKAN KAPAL OPERASIONAL
         var shipIcon = L.divIcon({
             html: `
                 <div style="position: relative; width: 70px; height: 30px; display: flex; align-items: center; justify-content: center;">
@@ -308,7 +437,6 @@
                 if (step >= totalSteps) {
                     marker.bindPopup(`<div style="width: 280px; font-family: monospace; color: #4ade80; font-size: 11px; padding: 10px; background: #121824;">⚓ <strong>ARRIVAL REPORT</strong><br>Vessel: ${vessel.name}<br>Status: ✅ SUCCESSFULLY BERTHED<br>Terminal: ${vessel.dest_name}</div>`);
                 } else {
-                    /
                     marker.bindPopup(generateDynamicVesselPopup(currentLat, currentLng, 'ON VOYAGE', false, vessel.currency_loss, vessel.storm_alert)).on('click', function() {
                         initCurrencyChart(vessel.currency_code, vessel.exchange_rate);
                     });
@@ -418,11 +546,12 @@
             map.flyTo([shipLat, shipLng], 4);
             setTimeout(function() { if (lastVesselMarker) lastVesselMarker.openPopup(); }, 1000);
         } else {
+            // FALLBACK JIKA ANTRIAN KANBAN RADAR ARMADA SEDANG KOSONG
             var fallbackMarker = L.marker([shipLat, shipLng], { icon: shipIcon }).addTo(map);
             var defaultPopupTemplate = `
                 <div style="width: 340px; font-family: 'Courier New', monospace; font-size: 12px; color: #e2e8f0; line-height: 1.4;">
                     <div style="padding: 8px 10px; background: #1e293b; border-bottom: 2px solid #334155; font-weight: bold; color: #38bdf8;">🚢 CARGO VESSEL: OCEANIC-EXPLORER</div>
-                    <div style="padding: 4px 10px; font-size: 11px; background: #0f172a; color: #94a3b8; border-bottom: 1px solid #334155;">📦 Resi: #VNG-2026-0982 | Status: <span style="color: #4ade80; font-weight: bold;">ON VOYAGE</span></div>
+                    <div style="padding: 4px 10px; font-size: 11px; background: #0f172a; color: #4ade80; border-bottom: 1px solid #334155;">📦 Resi: #VNG-2026-0982 | Status: <span style="font-weight: bold;">ON VOYAGE</span></div>
                     <div style="padding: 8px 10px; border-bottom: 1px solid #334155;">📍 LOCATION: -2.34, 108.56 (Laut Jawa)<br>Destination: 🇳🇱 Rotterdam, Netherlands</div>
                     <div style="padding: 8px 10px; border-bottom: 1px solid #334155; background: #1c1917;">🌤️ WEATHER: 29°C | Rain: 12 mm | Wind: 22 m/s (HIGH)<br><span style="color: #f87171; font-weight: bold;">⚠️ Alert: High Storm Risk in this Coordinate</span></div>
                     <div style="padding: 8px 10px; border-bottom: 1px solid #334155;">💰 FINANCES: Cost $50,000 | Impact: <span style="color: #f87171;">Loss (-1.2%)</span></div>

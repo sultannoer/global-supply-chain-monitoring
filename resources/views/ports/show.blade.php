@@ -37,7 +37,16 @@
     <div class="card shadow-sm border-0 mb-4 bg-dark text-white p-4" style="border-radius: 12px;">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
             <div>
-                <span class="badge bg-primary mb-2">Maritime Port Dashboard</span>
+                <!-- BADGE RESILIENCY NETWORKS INDIKATOR -->
+                @if(($exchangeData['api_status'] ?? 'OK') === 'FALLBACK_ACTIVE')
+                    <span class="badge bg-warning text-dark mb-2 animate__animated animate__flash animate__infinite">
+                        <i class="bi bi-wifi-off"></i> Satelit Global Offline - Menggunakan Data Cache Lokal
+                    </span>
+                @else
+                    <span class="badge bg-success mb-2">
+                        <i class="bi bi-cloud-check"></i> Semua Koneksi Satelit API Aktif (100% Real-Time)
+                    </span>
+                @endif
                 <h1 class="h2 mb-1 fw-bold text-warning">{{ $port->name }}</h1>
                 <p class="mb-0 text-white-50">
                     <i class="bi bi-geo-alt-fill text-danger"></i> 
@@ -222,21 +231,37 @@
         </div>
     </div>
 
+    <!-- RESTRUKTURISASI UI/UX: RENDER REAL-TIME NEWS CARD BERBASIS GNEWS API DATA -->
     <div class="card shadow-sm border-0 mb-4 bg-white text-dark">
         <div class="card-header bg-danger bg-opacity-10 border-0 pt-3">
-            <h5 class="card-title fw-bold mb-0 text-danger"><i class="bi bi-newspaper"></i> Intelijen Geopolitik & Berita Logistik Pelabuhan (GNews)</h5>
+            <h5 class="card-title fw-bold mb-0 text-danger"><i class="bi bi-newspaper"></i> Intelijen Geopolitik & Berita Logistik Pelabuhan (GNews Live)</h5>
         </div>
         <div class="card-body">
             <div class="row g-3">
-                @if(!empty($newsData))
-                    @foreach(array_slice($newsData, 0, 2) as $news)
-                        <div class="col-md-6">
-                            <div class="p-3 bg-light rounded border border-light-subtle h-100">
-                                <span class="badge bg-danger text-uppercase mb-2" style="font-size: 9px;">Berita Utama</span>
-                                <h6 class="fw-bold text-dark mb-1" style="font-size: 13px;">{{ $news['title'] ?? 'Logistics Update' }}</h6>
-                                <p class="text-muted small mb-0" style="font-size: 11px; text-align: justify; line-height: 1.4;">
-                                    {{ $news['description'] ?? 'Operational briefing and supply chain analytics sync for regional harbor management.' }}
-                                </p>
+                @if(!empty($newsData) && count($newsData) > 0)
+                    @foreach(array_slice($newsData, 0, 3) as $news)
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded border border-light-subtle h-100 d-flex flex-column justify-content-between shadow-sm">
+                                <div>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="badge bg-danger text-uppercase" style="font-size: 9px;"><i class="bi bi-broadcast"></i> Live Feed</span>
+                                        <small class="text-muted font-monospace" style="font-size: 10px;">
+                                            {{ isset($news['publishedAt']) ? \Carbon\Carbon::parse($news['publishedAt'])->diffForHumans() : now()->diffForHumans() }}
+                                        </small>
+                                    </div>
+                                    <h6 class="fw-bold text-dark mb-2 text-line-clamp" style="font-size: 13px; line-height: 1.4;">
+                                        {{ $news['title'] ?? 'Logistics Update' }}
+                                    </h6>
+                                    <p class="text-muted small mb-3 text-justify text-line-clamp-desc" style="font-size: 11px; line-height: 1.5;">
+                                        {{ $news['description'] ?? 'No extra description provided by the wire.' }}
+                                    </p>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-10">
+                                    <span class="text-primary fw-semibold" style="font-size: 10px;"><i class="bi bi-journal-bookmark-fill"></i> {{ $news['source']['name'] ?? 'Global Intelligence' }}</span>
+                                    <a href="{{ $news['url'] ?? '#' }}" target="_blank" class="btn btn-xs btn-outline-danger py-1 px-2 fw-bold text-uppercase rounded" style="font-size: 9px; text-decoration:none;">
+                                        Baca Sumber <i class="bi bi-box-arrow-up-right small"></i>
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     @endforeach
@@ -246,7 +271,7 @@
                             <i class="bi bi-shield-check text-success fs-4"></i>
                             <div>
                                 <h6 class="fw-bold text-dark mb-0" style="font-size: 13px;">Rute Jalur Pelayaran & Pelabuhan Kliring Aman</h6>
-                                <small class="text-muted" style="font-size: 11px;">Tidak ada indikasi delays makro atau ancaman blokade logistik geopolitik regional saat ini.</small>
+                                <small class="text-muted" style="font-size: 11px;">Tidak ada indikasi delays makro atau ancaman blokade logistik geopolitik regional saat ini dari satelit intelijen GNews.</small>
                             </div>
                         </div>
                     </div>
@@ -304,23 +329,29 @@
                             <tbody>
                                 <tr class="border-bottom border-light">
                                     <td class="text-muted ps-0 py-2">PDB / GDP Negara (World Bank):</td>
-                                    <td class="text-end fw-bold text-dark py-2">${{ $port->country->gdp && $port->country->gdp > 0 ? number_format($port->country->gdp) : '1.200.000.000.000' }} USD</td>
+                                    <td class="text-end fw-bold text-dark py-2">
+                                        ${{ $port->country->gdp && $port->country->gdp > 0 ? number_format($port->country->gdp) : '1,200,000,000,000' }} USD
+                                    </td>
                                 </tr>
                                 <tr class="border-bottom border-light">
                                     <td class="text-muted ps-0 py-2">Tingkat Inflasi Tahunan:</td>
-                                    <td class="text-end fw-bold text-danger py-2">{{ $port->country->inflation_rate && $port->country->inflation_rate > 0 ? $port->country->inflation_rate : '2.1' }}%[cite: 2]</td>
+                                    <td class="text-end fw-bold text-danger py-2">{{ $port->country->inflation_rate && $port->country->inflation_rate > 0 ? $port->country->inflation_rate : '2.1' }}%</td>
                                 </tr>
                                 <tr class="border-bottom border-light">
                                     <td class="text-muted ps-0 py-2">Total Populasi Penduduk:</td>
-                                    <td class="text-end fw-bold text-dark py-2">{{ $port->country->population ? number_format($port->country->population) : '0' }} Jiwa[cite: 2]</td>
+                                    <td class="text-end fw-bold text-dark py-2">{{ $port->country->population ? number_format($port->country->population) : '0' }} Jiwa</td>
                                 </tr>
                                 <tr class="border-bottom border-light">
-                                    <td class="text-muted ps-0 py-2">Volume Ekspor Global (Est):</td>
-                                    <td class="text-end fw-bold text-success py-2">${{ $port->country->export_volume ? number_format($port->country->export_volume) : '0' }} USD[cite: 2]</td>
+                                    <td class="text-muted ps-0 py-2">Volume Ekspor Global (Real API):</td>
+                                    <td class="text-end fw-bold text-success py-2">
+                                        ${{ $port->country->export_volume && $port->country->export_volume > 0 ? number_format($port->country->export_volume) : '0' }} USD
+                                    </td>
                                 </tr>
                                 <tr>
-                                    <td class="text-muted ps-0 py-2">Volume Impor Global (Est):</td>
-                                    <td class="text-end fw-bold text-primary py-2">${{ $port->country->import_volume ? number_format($port->country->import_volume) : '0' }} USD[cite: 2]</td>
+                                    <td class="text-muted ps-0 py-2">Volume Impor Global (Real API):</td>
+                                    <td class="text-end fw-bold text-primary py-2">
+                                        ${{ $port->country->import_volume && $port->country->import_volume > 0 ? number_format($port->country->import_volume) : '0' }} USD
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>
@@ -350,6 +381,20 @@
     #leafletMap { z-index: 1; }
     .leaflet-popup-content-wrapper { background: #121824 !important; color: #fff !important; border: 1px solid #334155; border-radius: 4px !important; }
     .leaflet-popup-tip { background: #121824 !important; border: 1px solid #334155; }
+    
+    /* CSS Utility Helpers untuk pembatasan baris teks berita */
+    .text-line-clamp {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .text-line-clamp-desc {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
 </style>
 @endpush
 
@@ -421,7 +466,6 @@
             }
         } catch (e) {}
 
-       
         try {
             var ctxForex = document.getElementById('currencyTrendChart');
             var realForexData = {!! json_encode($exchangeData['forex_data']) !!};
@@ -433,12 +477,12 @@
                         datasets: [{
                             label: 'Tren Kurs vs USD',
                             data: realForexData,
-                            borderColor: '#38bdf8',
-                            backgroundColor: 'rgba(56, 189, 248, 0.08)',
+                            borderColor: '#4ade80', 
+                            backgroundColor: 'rgba(74, 222, 128, 0.08)',
                             borderWidth: 2,
                             fill: true,
                             tension: 0.35,
-                            pointBackgroundColor: '#38bdf8'
+                            pointBackgroundColor: '#4ade80'
                         }]
                     },
                     options: {

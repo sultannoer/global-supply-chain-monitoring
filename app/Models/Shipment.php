@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Shipment extends Model
 {
-    
     protected $fillable = [
         'tracking_number', 
         'vessel_name', 
@@ -20,24 +19,23 @@ class Shipment extends Model
         'adaptive_eta',
         'initial_cost_usd', 
         'current_exchange_rate', 
+        'cargo_weight', // Tambahan wajib untuk radar
         'status', 
+        'step',         // Tambahan wajib untuk progress radar
         'risk_score'
     ];
 
-    
     protected $casts = [
         'departure_date' => 'date',
         'baseline_eta' => 'date',
         'adaptive_eta' => 'date',
     ];
 
-    
     public function originPort(): BelongsTo
     {
         return $this->belongsTo(Port::class, 'origin_port_id');
     }
 
-   
     public function destinationPort(): BelongsTo
     {
         return $this->belongsTo(Port::class, 'destination_port_id');

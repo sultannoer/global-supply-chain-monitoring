@@ -3,8 +3,7 @@
 @section('content')
 <div class="container-fluid p-0 bg-dark text-white min-vh-100" style="font-family: 'Segoe UI', Roboto, sans-serif;">
     <div class="row g-0 min-vh-100">
-        
-        <!-- SIDEBAR MINIMALIS -->
+       
         <div class="col-lg-2 bg-black bg-opacity-50 border-end border-secondary border-opacity-25 d-flex flex-column justify-content-between p-3">
             <div>
                 <div class="d-flex align-items-center gap-2 mb-4 px-2">
@@ -19,10 +18,8 @@
             </div>
         </div>
 
-        <!-- MAIN CONTENT AREA -->
         <div class="col-lg-10 d-flex flex-column p-4">
-            
-            <!-- HEADER -->
+      
             <div class="d-flex justify-content-between align-items-center border-bottom border-secondary border-opacity-25 pb-3 mb-4">
                 <div>
                     <h4 class="mb-0 fw-bold text-info"><i class="bi bi-journal-check"></i> Archival Expedition Logbook</h4>
@@ -33,7 +30,6 @@
                 </span>
             </div>
 
-            <!-- METRICS CARDS -->
             <div class="row g-4 mb-4">
                 <div class="col-md-4">
                     <div class="card bg-black bg-opacity-30 border border-secondary border-opacity-25 shadow-sm">
@@ -70,7 +66,6 @@
                 </div>
             </div>
 
-            <!-- TABLE HISTORIS -->
             <div class="card bg-black bg-opacity-20 border border-secondary border-opacity-25 shadow-sm rounded-3 overflow-hidden">
                 <div class="card-header bg-transparent border-secondary border-opacity-25 py-3">
                     <h6 class="mb-0 fw-bold small text-uppercase tracking-wider text-white-50"><i class="bi bi-table text-primary"></i> Manifest Audit Pelayaran Selesai</h6>
@@ -94,8 +89,7 @@
                                     <tr>
                                         <td class="text-primary font-monospace small">#LOG-{{ substr($vessel['id'], 0, 6) }}</td>
                                         <td class="fw-bold text-white"><i class="bi bi-check-circle-fill text-success me-2"></i> {{ $vessel['name'] }}</td>
-                                        
-                                        <!-- PELABUHAN KEBERANGKATAN DENGAN ISO NEGARA -->
+                                       
                                         <td>
                                             <span class="badge bg-secondary bg-opacity-25 text-white-50 p-2">
                                                 <i class="bi bi-box-arrow-up text-warning me-1"></i> 
@@ -106,7 +100,6 @@
                                             </span>
                                         </td>
                                         
-                                        <!-- PELABUHAN TUJUAN DENGAN ISO NEGARA -->
                                         <td>
                                             <span class="badge bg-primary bg-opacity-10 text-primary p-2">
                                                 <i class="bi bi-anchor text-info me-1"></i> 

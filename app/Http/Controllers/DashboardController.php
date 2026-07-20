@@ -26,12 +26,12 @@ class DashboardController extends Controller
         $this->newsService = $newsService;
     }
 
-   
+    // Menambahkan parameter Request $request agar sistem bisa mendeteksi jenis akses
     public function getliveMetrics(Request $request)
     {
         $ports = Port::with(['country'])->get();
 
-        
+        // Ambil data forex live terupdate global (Ditambahkan proteksi timeout 3 detik)
         $allLiveRates = Cache::remember("global_live_forex_rates_metrics", 3600, function() {
             try {
                 $response = Http::timeout(3)->get("https://open.er-api.com/v6/latest/USD");
@@ -48,7 +48,7 @@ class DashboardController extends Controller
             $currencyCode = $port->country->currency_code ?? 'USD';
             $rate = $allLiveRates[$currencyCode] ?? 1.00;
             
-            
+            // Perbaikan di sini: Menggunakan getLatestNews() dengan fallback pencegah eror method undefined
             $newsUpdate = "Terminal status operational.";
             if ($this->newsService && method_exists($this->newsService, 'getLatestNews')) {
                 try {
@@ -86,7 +86,10 @@ class DashboardController extends Controller
             ];
         });
 
-
+        // =========================================================================
+        // KUNCI PINTAR DETEKSI SISTEM:
+        // Jika diakses sebagai API (oleh Postman/sistem B2B) atau via AJAX, mutahkan JSON
+        // =========================================================================
         if ($request->wantsJson() || $request->is('api/*')) {
             return response()->json([
                 'status' => 'success',
@@ -96,7 +99,7 @@ class DashboardController extends Controller
             ], 200, [], JSON_PRETTY_PRINT);
         }
 
-        
+        // Jika dibuka operator lewat browser biasa, arahkan ke halaman dashboard visual mewah
         return view('dashboard.ports_master', compact('metricsData'));
     }
 }
