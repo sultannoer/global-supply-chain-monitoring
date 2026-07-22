@@ -3,33 +3,30 @@
 @section('content')
 <div class="container py-4" style="font-family: 'Segoe UI', Roboto, sans-serif;">
     @php
-        $countryName = $port->country->name ?? 'Indonesia';
+        $countryName = $port->country->name ?? 'N/A';
         $currencyCode = $port->country->currency_code ?? 'USD';
         
         $dbCode = strtolower($port->country->code ?? 'id');
+        $cCode = \App\Services\CountryFlagService::iso2($dbCode) ?? 'un';
         if ($dbCode === 'brn' || $dbCode === 'bn') {
-            $cCode = 'bn'; 
             $officialRegion = "Southeast Asia";
             $officialLang = "Malay / English";
         } elseif ($dbCode === 'idn' || $dbCode === 'id') {
-            $cCode = 'id'; 
             $officialRegion = "Southeast Asia";
             $officialLang = "Indonesian (Bahasa)";
         } elseif ($dbCode === 'chn' || $dbCode === 'cn') {
-            $cCode = 'cn'; 
             $officialRegion = "Eastern Asia";
             $officialLang = "Chinese (Mandarin)";
         } else {
-            $cCode = strlen($dbCode) === 3 ? substr($dbCode, 0, 2) : $dbCode;
             $officialRegion = $exchangeData['region'] ?? ($port->country->region ?? 'Global Maritime Region');
             $officialLang = $port->country->language ?? 'Local Language';
         }
         
-        $liveRate = $exchangeData['rate_against_usd'] ?? $exchangeData['rate'] ?? 1.00;
+        $liveRate = $exchangeData['rate_against_usd'] ?? $exchangeData['rate'] ?? null;
     @endphp
 
     <div class="mb-3">
-        <a href="{{ url('/') }}" class="btn btn-outline-secondary btn-sm px-3 rounded-pill fw-semibold">
+        <a href="{{ route('ports.index') }}" class="back-dashboard">
             <i class="bi bi-arrow-left-short fs-5 align-middle"></i> Kembali ke Live Radar
         </a>
     </div>
@@ -78,10 +75,10 @@
                     <div>
                         <h6 class="text-muted text-uppercase small fw-bold">Radar Cuaca Pelabuhan</h6>
                         <span class="badge bg-{{ ($port->storm_risk_status === 'High') ? 'danger' : (($port->storm_risk_status === 'Medium') ? 'warning' : 'success') }} fs-6 py-2 px-3 mt-2 rounded-pill">
-                            Suhu: {{ $port->temp ?? '27' }} °C
+                            Suhu: {{ $port->temp !== null ? $port->temp . ' °C' : 'N/A' }}
                         </span>
                     </div>
-                    <small class="d-block text-muted mt-3"><i class="bi bi-wind text-primary"></i> Angin: <strong>{{ $port->wind_speed ?? '0' }} km/h</strong></small>
+                    <small class="d-block text-muted mt-3"><i class="bi bi-wind text-primary"></i> Angin: <strong>{{ $port->wind_speed !== null ? $port->wind_speed . ' km/h' : 'N/A' }}</strong></small>
                 </div>
             </div>
         </div>
@@ -91,10 +88,10 @@
                     <div>
                         <h6 class="text-muted text-uppercase small fw-bold">Status Risiko Badai</h6>
                         <h3 class="fw-bold mt-2 text-{{ ($port->storm_risk_status === 'High') ? 'danger' : (($port->storm_risk_status === 'Medium') ? 'warning' : 'success') }}">
-                            {{ $port->storm_risk_status ?? 'Low' }}
+                            {{ $port->temp !== null ? $port->storm_risk_status : 'N/A' }}
                         </h3>
                     </div>
-                    <small class="text-muted d-block"><i class="bi bi-cloud-drizzle-fill text-info"></i> Curah Hujan: {{ $port->rain ?? '0' }} mm</small>
+                    <small class="text-muted d-block"><i class="bi bi-cloud-drizzle-fill text-info"></i> Curah Hujan: {{ $port->rain !== null ? $port->rain . ' mm' : 'N/A' }}</small>
                 </div>
             </div>
         </div>
@@ -294,23 +291,11 @@
             </div>
         </div>
 
-        <div class="col-lg-6">
-            <div class="card shadow-sm border-0 h-100 bg-white text-dark">
-                <div class="card-body d-flex flex-column">
-                    <h5 class="fw-bold mb-3 text-dark d-flex align-items-center">
-                        <i class="bi bi-graph-up-arrow text-primary me-2"></i> Live Forex Weekly Trend
-                    </h5>
-                    <p class="text-muted small mb-3">Fluktuasi nilai tukar berjalan <strong>1 USD ke {{ $currencyCode }}</strong> dalam rentang waktu operasional berkala.</p>
-                    <div class="flex-grow-1 border border-light rounded bg-light bg-opacity-20 p-2" style="min-height: 190px; position: relative;">
-                        <canvas id="currencyTrendChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <div class="row g-4 mb-4">
-        <div class="col-lg-6">
+        @if(false)
+        <div class="col-lg-6 d-none">
             <div class="card shadow-sm border-0 h-100 bg-white text-dark">
                 <div class="card-header bg-transparent border-0 pt-3">
                     <h5 class="card-title fw-bold mb-0"><i class="bi bi-cash-stack text-success"></i> Market Intelligence (Ekonomi)</h5>
@@ -319,7 +304,7 @@
                     <div class="bg-light p-3 rounded mb-3 border border-light-subtle text-center">
                         <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.75rem;">Nilai Tukar Forex Berjalan</small>
                         <h3 class="fw-bold text-dark my-1">
-                            1 USD = {{ number_format($liveRate, 2) }} {{ $currencyCode }}
+                            {{ $liveRate !== null ? '1 USD = ' . number_format($liveRate, 2) . ' ' . $currencyCode : 'Kurs N/A' }}
                         </h3>
                         <small class="text-success small font-monospace"><i class="bi bi-patch-check-fill"></i> Sync: Live Data Integrated</small>
                     </div>
@@ -360,7 +345,8 @@
             </div>
         </div>
 
-        <div class="col-lg-6">
+        @endif
+        <div class="col-lg-12">
             <div class="card shadow-sm border-0 h-100 bg-white text-dark">
                 <div class="card-header bg-transparent border-0 pt-3">
                     <h5 class="card-title fw-bold mb-0"><i class="bi bi-map-fill text-primary"></i> Geographic Port Tracker</h5>
@@ -466,37 +452,6 @@
             }
         } catch (e) {}
 
-        try {
-            var ctxForex = document.getElementById('currencyTrendChart');
-            var realForexData = {!! json_encode($exchangeData['forex_data']) !!};
-            if (ctxForex && realForexData) {
-                new Chart(ctxForex.getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'],
-                        datasets: [{
-                            label: 'Tren Kurs vs USD',
-                            data: realForexData,
-                            borderColor: '#4ade80', 
-                            backgroundColor: 'rgba(74, 222, 128, 0.08)',
-                            borderWidth: 2,
-                            fill: true,
-                            tension: 0.35,
-                            pointBackgroundColor: '#4ade80'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: { ticks: { font: { size: 9, family: 'monospace' } } },
-                            x: { ticks: { font: { size: 9 } } }
-                        }
-                    }
-                });
-            }
-        } catch (e) {}
     });
 </script>
 @endpush

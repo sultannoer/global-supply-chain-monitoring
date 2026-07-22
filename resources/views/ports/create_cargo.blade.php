@@ -133,7 +133,7 @@
                             <button type="submit" class="btn btn-primary px-4 py-2.5 rounded shadow fw-bold text-uppercase border-0">
                                 <i class="bi bi-file-earmark-plus-fill me-2"></i> Daftarkan Manifest Ke Radar Pelayaran
                             </button>
-                            <a href="{{ url('/') }}" class="btn btn-outline-secondary px-4 py-2.5 rounded fw-bold text-uppercase border-secondary border-opacity-25 text-white-50">
+                            <a href="{{ route('ports.index') }}" class="back-dashboard">
                                 <i class="bi bi-arrow-left-short fs-5 align-middle"></i> Kembali ke Dashboard
                             </a>
                         </div>
