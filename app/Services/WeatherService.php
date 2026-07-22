@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use App\Models\Port;
+use App\Models\Country;
 
 class WeatherService
 {
@@ -13,7 +14,7 @@ class WeatherService
     public function updatePortWeather(Port $port): bool
     {
         try {
-            $response = Http::get('https://api.open-meteo.com/v1/forecast', [
+            $response = Http::acceptJson()->timeout(8)->retry(2, 300)->get('https://api.open-meteo.com/v1/forecast', [
                 'latitude' => $port->latitude,
                 'longitude' => $port->longitude,
                 'current' => 'temperature_2m,rain,wind_speed_10m',
@@ -23,14 +24,18 @@ class WeatherService
             if ($response->successful()) {
                 $data = $response->json('current');
 
-                $temp = $data['temperature_2m'] ?? 0;
-                $rain = $data['rain'] ?? 0;
-                $windSpeed = $data['wind_speed_10m'] ?? 0; // dalam km/jam
+                $temp = $data['temperature_2m'] ?? null;
+                $rain = $data['rain'] ?? null;
+                $windSpeed = $data['wind_speed_10m'] ?? null; // dalam km/jam
+
+                if (! is_numeric($temp) || ! is_numeric($rain) || ! is_numeric($windSpeed)) {
+                    return false;
+                }
 
                 $stormRisk = 'Low';
-                if ($windSpeed > 50 || $rain > 15) {
+                if ((float) $windSpeed > 50 || (float) $rain > 15) {
                     $stormRisk = 'High';
-                } elseif ($windSpeed > 30 || $rain > 5) {
+                } elseif ((float) $windSpeed > 30 || (float) $rain > 5) {
                     $stormRisk = 'Medium';
                 }
 
@@ -50,13 +55,47 @@ class WeatherService
         }
     }
 
+    /** Use a country's stored coordinates when no real port is available. */
+    public function getCountryWeather(Country $country): ?array
+    {
+        if (! is_numeric($country->latitude) || ! is_numeric($country->longitude)) {
+            return null;
+        }
+
+        try {
+            $response = Http::acceptJson()->timeout(8)->retry(2, 300)->get('https://api.open-meteo.com/v1/forecast', [
+                'latitude' => $country->latitude,
+                'longitude' => $country->longitude,
+                'current' => 'temperature_2m,rain,wind_speed_10m',
+                'timezone' => 'auto',
+            ]);
+            $data = $response->successful() ? $response->json('current', []) : [];
+            $temp = $data['temperature_2m'] ?? null;
+            $rain = $data['rain'] ?? null;
+            $wind = $data['wind_speed_10m'] ?? null;
+            if (! is_numeric($temp) || ! is_numeric($rain) || ! is_numeric($wind)) {
+                return null;
+            }
+
+            $storm = ((float) $wind > 50 || (float) $rain > 15) ? 'High' : (((float) $wind > 30 || (float) $rain > 5) ? 'Medium' : 'Low');
+            $risk = (($storm === 'High') ? 40 : (($storm === 'Medium') ? 20 : 5))
+                + (((float) $wind > 50) ? 30 : (((float) $wind > 30) ? 15 : 5))
+                + (((float) $rain > 15) ? 30 : (((float) $rain > 5) ? 15 : 5));
+
+            return ['temp' => (float) $temp, 'rain' => (float) $rain, 'wind_speed' => (float) $wind, 'storm_risk_status' => $storm, 'risk_score' => min(100, $risk)];
+        } catch (\Throwable $exception) {
+            \Log::warning('Country weather request failed.', ['country' => $country->code, 'message' => $exception->getMessage()]);
+            return null;
+        }
+    }
+
     /**
      * Cek cuaca dinamis di tengah laut untuk koordinat Kapal (Tambahan Baru)
      */
     public function getMarineWeather($lat, $lng): array
     {
         try {
-            $response = Http::get('https://api.open-meteo.com/v1/forecast', [
+            $response = Http::acceptJson()->timeout(8)->retry(2, 300)->get('https://api.open-meteo.com/v1/forecast', [
                 'latitude' => $lat,
                 'longitude' => $lng,
                 'current' => 'temperature_2m,rain,wind_speed_10m',
@@ -87,6 +126,6 @@ class WeatherService
         }
 
         // Kembalikan data default jika API gagal
-        return ['temp' => 26, 'wind' => 10, 'rain' => 0, 'is_storm_risk' => false];
+        return ['temp' => null, 'wind' => null, 'rain' => null, 'is_storm_risk' => false];
     }
 }

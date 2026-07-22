@@ -2,74 +2,99 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Cache;
+use App\Models\CurrencyRateHistory;
 use App\Models\Shipment;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class ExchangeRateService
 {
-    /**
-     * Update kurs saat ini untuk spesifik Shipment (Kode Asli Milikmu)
-     */
-    public function updateShipmentExchangeRate(Shipment $shipment): bool
+    public function getLatestRates(): array
     {
-        try {
-            $destinationCurrency = $shipment->destinationPort->country->currency_code ?? null;
+        return Cache::remember('exchange-rates:usd', now()->addHour(), function () {
+            try {
+                $response = Http::acceptJson()->timeout(8)->retry(2, 300)
+                    ->get('https://open.er-api.com/v6/latest/USD');
 
-            if (!$destinationCurrency) {
-                return false;
-            }
-
-            $response = Http::get("https://open.er-api.com/v6/latest/USD");
-
-            if ($response->successful()) {
-                $rates = $response->json('rates');
-                $currentRate = $rates[$destinationCurrency] ?? null;
-
-                if ($currentRate) {
-                    $shipment->update([
-                        'current_exchange_rate' => $currentRate
-                    ]);
-
-                    return true;
+                if (! $response->successful() || ! is_array($response->json('rates'))) {
+                    return [];
                 }
-            }
 
-            return false;
-        } catch (\Exception $e) {
-            \Log::error("Gagal memperbarui kurs untuk Shipment #{$shipment->tracking_number}: " . $e->getMessage());
-            return false;
-        }
+                return [
+                    'base' => $response->json('base_code', 'USD'),
+                    'rates' => $response->json('rates'),
+                    'updated_at' => $response->json('time_last_update_utc'),
+                    'source' => 'open.er-api.com',
+                ];
+            } catch (\Throwable $exception) {
+                Log::warning('ExchangeRate request failed.', ['message' => $exception->getMessage()]);
+                return [];
+            }
+        });
     }
 
-    /**
-     * Dapatkan data tren fluktuasi untuk Chart.js di Dashboard (Tambahan Baru)
-     */
-    public function getCurrencyTrend($currencyCode): array
+    public function getRate(string $currencyCode): ?float
     {
-        // Kita cache selama 1 jam agar API tidak kelebihan beban (limit request)
-        return Cache::remember("forex_trend_" . $currencyCode, 3600, function() use ($currencyCode) {
-            try {
-                $response = Http::get("https://open.er-api.com/v6/latest/USD");
-                
-                if ($response->successful()) {
-                    $rates = $response->json('rates');
-                    $baseRate = $rates[$currencyCode] ?? 1.0;
+        $rates = $this->getLatestRates()['rates'] ?? [];
+        $rate = $rates[strtoupper($currencyCode)] ?? null;
 
-                    // Mensimulasikan fluktuasi pasar riil berbasis persentase acak ringan
-                    // Titik terakhir (index ke-3) adalah kurs ASLI saat ini
-                    return [
-                        round($baseRate * (1 - (rand(1, 5) / 1000)), 4), 
-                        round($baseRate * (1 + (rand(1, 5) / 1000)), 4), 
-                        round($baseRate * (1 - (rand(1, 3) / 1000)), 4), 
-                        round($baseRate, 4) // Kurs Final / Aktual
-                    ];
-                }
-            } catch (\Exception $e) {
-                \Log::error("Gagal menarik tren Forex: " . $e->getMessage());
-            }
+        return is_numeric($rate) ? (float) $rate : null;
+    }
 
-            return [1.0, 1.0, 1.0, 1.0];
-        });
+    public function updateShipmentExchangeRate(Shipment $shipment): bool
+    {
+        $currency = $shipment->destinationPort?->country?->currency_code;
+        $rate = $currency ? $this->getRate($currency) : null;
+
+        if ($rate === null) {
+            return false;
+        }
+
+        $shipment->update(['current_exchange_rate' => $rate]);
+
+        return true;
+    }
+
+    /** Store one observed rate per country currency without inventing values for unsupported codes. */
+    public function snapshotRatesForCurrencies(array $currencyCodes): int
+    {
+        $payload = $this->getLatestRates();
+        $rates = $payload['rates'] ?? [];
+        if (! is_array($rates) || $rates === []) {
+            return 0;
+        }
+
+        $codes = collect($currencyCodes)
+            ->map(fn ($code) => strtoupper(trim((string) $code)))
+            ->filter(fn (string $code) => preg_match('/^[A-Z]{3}$/', $code) === 1)
+            ->unique()
+            ->values();
+
+        foreach ($codes as $code) {
+            $rate = $code === 'USD' ? 1.0 : ($rates[$code] ?? null);
+            CurrencyRateHistory::create([
+                'currency_code' => $code,
+                'rate_to_usd' => is_numeric($rate) ? (float) $rate : null,
+                'source' => $payload['source'] ?? 'open.er-api.com',
+                'recorded_at' => now(),
+            ]);
+        }
+
+        return $codes->count();
+    }
+
+    /** The free source has a current-rate endpoint only; do not fabricate a historical chart. */
+    public function getCurrencyTrend(string $currencyCode): array
+    {
+        $rate = $this->getRate($currencyCode);
+        if ($rate === null) {
+            return ['labels' => [], 'values' => []];
+        }
+
+        return [
+            'labels' => [now('UTC')->format('d M H:i').' UTC'],
+            'values' => [$rate],
+        ];
     }
 }

@@ -18,11 +18,14 @@ class Country extends Model
 
     
     protected $fillable = [
-        'code', 
+        'code',
+        'alpha2_code',
         'name', 
         'region', 
         'currency_code', 
         'language',
+        'latitude',
+        'longitude',
         'gdp', 
         'inflation_rate', 
         'population', 
@@ -34,5 +37,20 @@ class Country extends Model
     public function ports(): HasMany
     {
         return $this->hasMany(Port::class, 'country_code', 'code');
+    }
+
+    public function riskScores(): HasMany
+    {
+        return $this->hasMany(RiskScore::class, 'country_code', 'code');
+    }
+
+    public function economicHistories(): HasMany
+    {
+        return $this->hasMany(CountryEconomicHistory::class, 'country_code', 'code');
+    }
+
+    public function weatherHistories(): HasMany
+    {
+        return $this->hasMany(CountryWeatherHistory::class, 'country_code', 'code');
     }
 }
