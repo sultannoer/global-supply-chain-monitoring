@@ -2,12 +2,21 @@
 
 namespace App\Services;
 
+use App\Models\Country;
 use App\Models\Port;
+use App\Models\RiskScore;
 use App\Models\Shipment;
 use App\Models\RiskAlert;
+use App\Models\CountryWeatherHistory;
 
 class RiskAssessmentService
 {
+    public function __construct(
+        private readonly ExchangeRateService $exchangeRates,
+        private readonly NewsService $newsService,
+    ) {
+    }
+
     /**
      * Menghitung skor risiko akumulatif untuk Pelabuhan (Skala 0 - 100)
      */
@@ -70,6 +79,7 @@ class RiskAssessmentService
     public function calculateShipmentRisk(Shipment $shipment): int
     {
         $score = 0;
+        $inflation = 0.0;
         $destinationPort = $shipment->destinationPort;
 
         // 1. FAKTOR KONDISI CUACA DI PELABUHAN TUJUAN (Bobot: 60%)
@@ -111,5 +121,127 @@ class RiskAssessmentService
         }
 
         return $finalScore;
+    }
+
+    /**
+     * Weighted country risk model.
+     * Weather 35%, inflation 25%, exchange movement 15%, news risk 25%.
+     * Missing components are excluded from the weighted denominator and are
+     * reported through data_coverage instead of silently converted to zero.
+     */
+    public function calculateCountryRisk(Country $country): RiskScore
+    {
+        $previousScore = RiskScore::query()
+            ->where('country_code', $country->code)
+            ->latest('calculated_at')
+            ->first();
+        $lastValid = static function (string $field) use ($country) {
+            return RiskScore::query()->where('country_code', $country->code)
+                ->whereNotNull($field)->latest('calculated_at')->value($field);
+        };
+
+        $weather = $country->ports()
+            ->whereNotNull('temp')
+            ->avg('risk_score');
+        $weather = is_numeric($weather) ? (float) $weather : null;
+        if ($weather === null) {
+            $weather = CountryWeatherHistory::query()
+                ->where('country_code', $country->code)
+                ->latest('recorded_at')
+                ->value('risk_score');
+            $weather = is_numeric($weather) ? (float) $weather : null;
+        }
+        if ($weather === null) {
+            $lastWeather = $lastValid('weather_score');
+            $weather = is_numeric($lastWeather) ? (float) $lastWeather : ($previousScore?->weather_score !== null ? (float) $previousScore->weather_score : null);
+        }
+
+        $inflation = $country->inflation_rate;
+        $inflationScore = is_numeric($inflation)
+            ? min(100, max(0, (float) $inflation * 5))
+            : null;
+        if ($inflationScore === null) {
+            $lastInflation = $lastValid('inflation_score');
+            $inflationScore = is_numeric($lastInflation) ? (float) $lastInflation : ($previousScore?->inflation_score !== null ? (float) $previousScore->inflation_score : null);
+        }
+
+        $rate = $this->exchangeRates->getRate($country->currency_code);
+        $previous = RiskScore::query()
+            ->where('country_code', $country->code)
+            ->whereNotNull('exchange_rate')
+            ->latest('calculated_at')
+            ->value('exchange_rate');
+        $exchangeScore = $this->calculateExchangeScore($rate, $previous);
+        if ($exchangeScore === null) {
+            $lastExchange = $lastValid('exchange_score');
+            $exchangeScore = is_numeric($lastExchange) ? (float) $lastExchange : ($previousScore?->exchange_score !== null ? (float) $previousScore->exchange_score : null);
+        }
+
+        // Country risk and News Sentiment now use the same country-scoped articles.
+        $newsSummary = $this->newsService->summarizeSentiment($this->newsService->getLatestNews($country->name, 10));
+        $newsScore = $newsSummary['total_articles'] > 0 ? $newsSummary['negative_percentage'] : null;
+        if ($newsScore === null) {
+            $lastNews = $lastValid('news_score');
+            $newsScore = is_numeric($lastNews) ? (float) $lastNews : ($previousScore?->news_score !== null ? (float) $previousScore->news_score : null);
+        }
+        $components = [
+            ['value' => $weather, 'weight' => 0.35],
+            ['value' => $inflationScore, 'weight' => 0.25],
+            ['value' => $exchangeScore, 'weight' => 0.15],
+            ['value' => $newsScore, 'weight' => 0.25],
+        ];
+
+        $availableWeight = 0.0;
+        $weightedTotal = 0.0;
+        foreach ($components as $component) {
+            if ($component['value'] === null) {
+                continue;
+            }
+
+            $availableWeight += $component['weight'];
+            $weightedTotal += $component['value'] * $component['weight'];
+        }
+
+        $total = $availableWeight > 0 ? round($weightedTotal / $availableWeight, 2) : null;
+
+        return RiskScore::create([
+            'country_code' => $country->code,
+            'weather_score' => $weather,
+            'inflation_score' => $inflationScore,
+            'exchange_score' => $exchangeScore,
+            'news_score' => $newsScore,
+            'exchange_rate' => $rate ?? $lastValid('exchange_rate') ?? $previousScore?->exchange_rate,
+            'total_score' => $total,
+            'data_coverage' => (int) round($availableWeight * 100),
+            'risk_level' => $this->riskLevel($total),
+            'calculated_at' => now(),
+        ]);
+    }
+
+    private function calculateExchangeScore(?float $rate, mixed $previousRate): ?float
+    {
+        if ($rate === null) {
+            return null;
+        }
+
+        if (! is_numeric($previousRate) || (float) $previousRate <= 0) {
+            // First real observation establishes the baseline; no volatility is inferred.
+            return 0.0;
+        }
+
+        $changePercent = abs(($rate - (float) $previousRate) / (float) $previousRate) * 100;
+
+        return min(100, round($changePercent * 20, 2));
+    }
+
+    private function riskLevel(?float $score): string
+    {
+        return match (true) {
+            $score === null => 'UNKNOWN',
+            $score < 30 => 'LOW',
+            $score < 60 => 'MEDIUM',
+            $score < 80 => 'HIGH',
+            default => 'CRITICAL',
+        };
     }
 }
