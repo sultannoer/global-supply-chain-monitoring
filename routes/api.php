@@ -31,8 +31,9 @@ Route::get('/risk', function () {
         'source' => 'Weighted RiskAssessmentService output',
         'weights' => ['weather' => 35, 'inflation' => 25, 'exchange' => 15, 'news' => 25],
         'data' => $scores,
-        'alerts' => RiskAlert::with(['port:id,name,country_code', 'shipment:id,tracking_number,vessel_name,risk_score'])
-            ->where('is_resolved', false)->latest()->take(20)->get(),
+        'alerts' => RiskAlert::active()
+            ->with(['port:id,name,country_code', 'shipment:id,tracking_number,vessel_name,risk_score'])
+            ->latest()->take(20)->get(),
     ]);
 });
 

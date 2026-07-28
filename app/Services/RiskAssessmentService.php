@@ -23,14 +23,30 @@ class RiskAssessmentService
     public function calculatePortRisk(Port $port): int
     {
         $score = 0;
+        $zoneExposure = $this->stormExposureForCoordinates(
+            (float) $port->latitude,
+            (float) $port->longitude,
+            $port->id,
+        );
+        $effectiveStormStatus = $this->highestStormStatus(
+            $port->storm_risk_status,
+            $zoneExposure['risk'] ?? null,
+        );
 
         // 1. FAKTOR STATUS BADAI (Bobot Maksimal: 40 Poin)
-        if ($port->storm_risk_status === 'High') {
+        if ($effectiveStormStatus === 'High') {
             $score += 40;
-        } elseif ($port->storm_risk_status === 'Medium') {
+        } elseif ($effectiveStormStatus === 'Medium') {
             $score += 20;
         } else {
             $score += 5;
+        }
+
+        // Sebuah port dapat ber-cuaca lokal tenang namun berada di dalam
+        // radius dampak badai dari terminal lain. Tambahkan penalti zona agar
+        // marker, alert, dan Risk Score menggambarkan kondisi operasionalnya.
+        if ($zoneExposure && $this->stormRank($zoneExposure['risk']) > $this->stormRank($port->storm_risk_status)) {
+            $score += 10;
         }
 
         // 2. FAKTOR KECEPATAN ANGIN (Bobot Maksimal: 30 Poin)
@@ -57,7 +73,9 @@ class RiskAssessmentService
         $port->update(['risk_score' => $finalScore]);
 
         // 🚨 TRIGGER OTOMATIS: Catat log jika pelabuhan masuk zona bahaya
-        if ($finalScore >= 50) {
+        // Medium and High weather conditions must both enter the global
+        // warning feed; a route is not required for a port weather alert.
+        if ($finalScore >= 40) {
             RiskAlert::updateOrCreate(
                 ['port_id' => $port->id, 'is_resolved' => false, 'risk_type' => 'WEATHER'],
                 [
@@ -140,17 +158,25 @@ class RiskAssessmentService
                 ->whereNotNull($field)->latest('calculated_at')->value($field);
         };
 
-        $weather = $country->ports()
+        // Risiko cuaca negara harus mencerminkan titik terburuk yang sedang
+        // dipantau: rata-rata risiko terminal aktif dan/atau cuaca pada
+        // koordinat referensi negara. Dengan demikian badai pada negara yang
+        // punya port tetap menaikkan komponen weather pada Risk Score.
+        $portWeather = $country->ports()
             ->whereNotNull('temp')
             ->avg('risk_score');
-        $weather = is_numeric($weather) ? (float) $weather : null;
-        if ($weather === null) {
-            $weather = CountryWeatherHistory::query()
-                ->where('country_code', $country->code)
-                ->latest('recorded_at')
-                ->value('risk_score');
-            $weather = is_numeric($weather) ? (float) $weather : null;
-        }
+        $portWeather = is_numeric($portWeather) ? (float) $portWeather : null;
+        $countryWeather = CountryWeatherHistory::query()
+            ->where('country_code', $country->code)
+            ->latest('recorded_at')
+            ->value('risk_score');
+        $countryWeather = is_numeric($countryWeather) ? (float) $countryWeather : null;
+        $countryZoneExposure = $this->stormExposureForCoordinates(
+            (float) $country->latitude,
+            (float) $country->longitude,
+        );
+        $zoneWeather = $countryZoneExposure ? $this->zoneExposureScore($countryZoneExposure['risk']) : null;
+        $weather = collect([$portWeather, $countryWeather, $zoneWeather])->filter(static fn ($value) => $value !== null)->max();
         if ($weather === null) {
             $lastWeather = $lastValid('weather_score');
             $weather = is_numeric($lastWeather) ? (float) $lastWeather : ($previousScore?->weather_score !== null ? (float) $previousScore->weather_score : null);
@@ -216,6 +242,85 @@ class RiskAssessmentService
             'risk_level' => $this->riskLevel($total),
             'calculated_at' => now(),
         ]);
+    }
+
+    /**
+     * Finds the strongest active Open-Meteo storm zone covering coordinates.
+     * The source port remains the source of the weather measurement; this only
+     * models its operational impact radius on nearby ports/country markers.
+     */
+    public function stormExposureForCoordinates(float $latitude, float $longitude, ?int $excludePortId = null): ?array
+    {
+        if (! is_finite($latitude) || ! is_finite($longitude) || ($latitude == 0.0 && $longitude == 0.0)) {
+            return null;
+        }
+
+        $zones = Port::query()
+            ->whereIn('storm_risk_status', ['High', 'Medium'])
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->when($excludePortId, fn ($query) => $query->where('id', '!=', $excludePortId))
+            ->get(['id', 'name', 'latitude', 'longitude', 'storm_risk_status']);
+
+        $best = null;
+        foreach ($zones as $zone) {
+            $risk = $zone->storm_risk_status;
+            $radius = $risk === 'High' ? 300.0 : 180.0;
+            $distance = $this->haversineKilometers($latitude, $longitude, (float) $zone->latitude, (float) $zone->longitude);
+            if ($distance > $radius) {
+                continue;
+            }
+
+            if ($best === null
+                || $this->stormRank($risk) > $this->stormRank($best['risk'])
+                || ($this->stormRank($risk) === $this->stormRank($best['risk']) && $distance < $best['distance_km'])) {
+                $best = [
+                    'risk' => $risk,
+                    'source_port_id' => $zone->id,
+                    'source_name' => $zone->name,
+                    'radius_km' => $radius,
+                    'distance_km' => round($distance, 1),
+                ];
+            }
+        }
+
+        return $best;
+    }
+
+    private function zoneExposureScore(string $risk): float
+    {
+        return $risk === 'High' ? 60.0 : 40.0;
+    }
+
+    private function highestStormStatus(?string ...$statuses): string
+    {
+        $highest = 'Low';
+        foreach ($statuses as $status) {
+            if ($this->stormRank($status) > $this->stormRank($highest)) {
+                $highest = ucfirst(strtolower((string) $status));
+            }
+        }
+
+        return $highest;
+    }
+
+    private function stormRank(?string $status): int
+    {
+        return match (strtolower((string) $status)) {
+            'high' => 3,
+            'medium' => 2,
+            default => 1,
+        };
+    }
+
+    private function haversineKilometers(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $latDelta = deg2rad($lat2 - $lat1);
+        $lngDelta = deg2rad($lng2 - $lng1);
+        $a = sin($latDelta / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($lngDelta / 2) ** 2;
+
+        return 6371.0 * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 
     private function calculateExchangeScore(?float $rate, mixed $previousRate): ?float

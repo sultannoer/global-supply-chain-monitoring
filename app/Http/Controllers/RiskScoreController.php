@@ -40,8 +40,8 @@ class RiskScoreController extends Controller
             'coverage' => round((float) $latestScores->avg('data_coverage')),
         ];
 
-        $alerts = RiskAlert::with(['port:id,name,country_code', 'shipment:id,tracking_number,vessel_name'])
-            ->where('is_resolved', false)
+        $alerts = RiskAlert::active()
+            ->with(['port:id,name,country_code', 'shipment:id,tracking_number,vessel_name'])
             ->latest()
             ->take(10)
             ->get();

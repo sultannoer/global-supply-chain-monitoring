@@ -32,6 +32,7 @@ class TrendController extends Controller
             ?? Port::query()->whereIn('id', $ports->pluck('id'))->whereHas('weatherHistories')->latest('updated_at')->first(['id', 'name'])
             ?? $ports->first();
 
+        $weatherUpdated = false;
         if ($selectedPort) {
             // The selected port may not be part of the latest background batch.
             // Create its first genuine Open-Meteo observation on demand instead
@@ -50,7 +51,40 @@ class TrendController extends Controller
                     'risk_score' => $selectedPort->risk_score,
                     'recorded_at' => now(),
                 ]);
+                $weatherUpdated = true;
             }
+        }
+
+        // Landlocked/no-port countries still get a genuine weather series from
+        // Open-Meteo using the country's stored reference coordinates.
+        if (! $selectedPort && $country) {
+            $latestCountryWeather = CountryWeatherHistory::query()
+                ->where('country_code', $country->code)
+                ->latest('recorded_at')
+                ->first();
+
+            if (! $latestCountryWeather || $latestCountryWeather->recorded_at?->lt(now()->subMinutes(30))) {
+                $countryWeather = $weatherService->getCountryWeather($country);
+                if ($countryWeather) {
+                    CountryWeatherHistory::create([
+                        'country_code' => $country->code,
+                        'temp' => $countryWeather['temp'],
+                        'rain' => $countryWeather['rain'],
+                        'wind_speed' => $countryWeather['wind_speed'],
+                        'storm_risk_status' => $countryWeather['storm_risk_status'],
+                        'risk_score' => $countryWeather['risk_score'],
+                        'recorded_at' => now(),
+                    ]);
+                    $weatherUpdated = true;
+                }
+            }
+        }
+
+        // Buat titik Risk Score pada waktu yang sama dengan snapshot cuaca,
+        // sehingga Historical Trends menunjukkan dampak badai pada grafik
+        // risiko, bukan hanya pada grafik suhu/angin/hujan.
+        if ($country && $weatherUpdated) {
+            $riskAssessmentService->calculateCountryRisk($country);
         }
 
         $risk = $country ? RiskScore::query()->where('country_code', $country->code)->latest('calculated_at')->take(60)->get()->reverse()->values() : collect();
@@ -65,6 +99,13 @@ class TrendController extends Controller
             'country' => $country,
             'ports' => $ports,
             'selectedPort' => $selectedPort,
+            'weatherSource' => $selectedPort
+                ? $selectedPort->name
+                : ($country ? $country->name . ' reference coordinates' : 'Country coordinates'),
+            'weatherObservationCount' => $weather->count(),
+            'weatherLatestAt' => $weather->last()?->recorded_at?->format('d M Y H:i'),
+            'weatherStormStatus' => $weather->last()?->storm_risk_status,
+            'weatherRiskScore' => $weather->last()?->risk_score,
             'charts' => [
                 'risk' => $this->series($risk, 'calculated_at', ['Risk score' => 'total_score']),
                 'currency' => $this->series($currency, 'recorded_at', ['Exchange rate' => 'rate_to_usd']),

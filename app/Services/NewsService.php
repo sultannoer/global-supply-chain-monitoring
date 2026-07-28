@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Port;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -21,22 +22,39 @@ class NewsService
         return $this->analyze($this->search($query, $limit), $query);
     }
 
+    /**
+     * Search news for one port first, then fall back to country news when the
+     * wire has no article that mentions the specific terminal.
+     *
+     * The result includes a scope so the UI can distinguish a true port hit
+     * from a country-level fallback. Identical queries are cached for six
+     * hours by search(), so opening the same port does not spend another call.
+     */
+    public function getPortNews(Port $port, int $limit = 5): array
+    {
+        $portName = trim($port->name);
+        $countryName = trim((string) ($port->country?->name ?? ''));
+        $quotedPort = '"'.str_replace('"', '', $portName).'"';
+        $quotedCountry = $countryName !== '' ? ' "'.str_replace('"', '', $countryName).'"' : '';
+        $query = trim($quotedPort.$quotedCountry.' (port OR terminal OR harbor OR shipping OR congestion OR cargo)');
+
+        $articles = $this->analyze($this->search($query, $limit), $query);
+        if ($articles !== []) {
+            return ['articles' => $articles, 'scope' => 'port', 'query' => $query];
+        }
+
+        $fallback = $this->getLatestNews($countryName, $limit);
+
+        return [
+            'articles' => $fallback,
+            'scope' => $fallback !== [] ? 'country_fallback' : 'none',
+            'query' => $query,
+        ];
+    }
+
     public function getLogisticsNews(string $query = 'global logistics', int $limit = 5): array
     {
         return $this->analyze($this->search($query, $limit), $query);
-    }
-
-    public function fetchSupplyChainNews(): array
-    {
-        return $this->getLogisticsNews('supply chain OR maritime logistics OR port congestion');
-    }
-
-    /** Use the same ten cached articles shown on the News Sentiment page. */
-    public function getRiskHeadlines(): array
-    {
-        // getLogisticsNews() uses the shared 15-minute GNews search cache, so
-        // Risk Score and News Sentiment receive the exact same article set.
-        return $this->getLogisticsNews('global logistics OR maritime shipping OR supply chain', 10);
     }
 
     public function summarizeSentiment(array $articles): array

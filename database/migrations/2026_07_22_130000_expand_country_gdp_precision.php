@@ -1,18 +1,24 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
         // The United States' real GDP exceeds DECIMAL(15,2)'s maximum value.
-        DB::statement('ALTER TABLE countries MODIFY gdp DECIMAL(20,2) NULL');
+        // Blueprint::change() works on both MySQL and the SQLite test database.
+        Schema::table('countries', function (Blueprint $table) {
+            $table->decimal('gdp', 20, 2)->nullable()->change();
+        });
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE countries MODIFY gdp DECIMAL(15,2) NULL');
+        Schema::table('countries', function (Blueprint $table) {
+            $table->decimal('gdp', 15, 2)->nullable()->change();
+        });
     }
 };

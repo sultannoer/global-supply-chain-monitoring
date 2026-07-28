@@ -89,43 +89,4 @@ class WeatherService
         }
     }
 
-    /**
-     * Cek cuaca dinamis di tengah laut untuk koordinat Kapal (Tambahan Baru)
-     */
-    public function getMarineWeather($lat, $lng): array
-    {
-        try {
-            $response = Http::acceptJson()->timeout(8)->retry(2, 300)->get('https://api.open-meteo.com/v1/forecast', [
-                'latitude' => $lat,
-                'longitude' => $lng,
-                'current' => 'temperature_2m,rain,wind_speed_10m',
-                'timezone' => 'auto'
-            ]);
-
-            if ($response->successful()) {
-                $data = $response->json('current');
-                
-                $windSpeed = $data['wind_speed_10m'] ?? 0;
-                $rain = $data['rain'] ?? 0;
-
-                // Logika yang sama dengan milikmu agar konsisten
-                $isStormRisk = false;
-                if ($windSpeed > 30 || $rain > 5) {
-                    $isStormRisk = true; // Anggap cuaca buruk jika Medium/High
-                }
-
-                return [
-                    'temp' => $data['temperature_2m'] ?? 25,
-                    'wind' => $windSpeed,
-                    'rain' => $rain,
-                    'is_storm_risk' => $isStormRisk
-                ];
-            }
-        } catch (\Exception $e) {
-            // Heningkan error agar peta tidak mati jika API down
-        }
-
-        // Kembalikan data default jika API gagal
-        return ['temp' => null, 'wind' => null, 'rain' => null, 'is_storm_risk' => false];
-    }
 }

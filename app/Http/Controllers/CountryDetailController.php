@@ -9,6 +9,10 @@ use App\Services\ExchangeRateService;
 use App\Services\CountryService;
 use App\Services\CountryFlagService;
 use App\Models\Watchlist;
+use App\Models\CountryWeatherHistory;
+use App\Models\RiskScore;
+use App\Services\RiskAssessmentService;
+use App\Services\WeatherService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\Response;
 
@@ -20,6 +24,8 @@ class CountryDetailController extends Controller
         EconomicService $economicService,
         ExchangeRateService $exchangeRates,
         CountryService $countryService,
+        WeatherService $weatherService,
+        RiskAssessmentService $riskAssessment,
     ): Response {
         $code = strtoupper($code);
         $country = Country::find($code);
@@ -48,6 +54,35 @@ class CountryDetailController extends Controller
             $country->refresh();
         }
 
+        // Detail negara memakai snapshot Open-Meteo yang sama dengan marker
+        // dan Historical Trends. Cache singkat mencegah refresh halaman
+        // mengirim banyak request identik, namun status badai tetap aktual.
+        $weatherWasSynced = false;
+        $countryWeather = Cache::remember('country-detail-weather:'.$country->code, now()->addMinutes(15), function () use ($country, $weatherService, &$weatherWasSynced) {
+            $weather = $weatherService->getCountryWeather($country);
+            if ($weather) {
+                CountryWeatherHistory::create([
+                    'country_code' => $country->code,
+                    'temp' => $weather['temp'],
+                    'rain' => $weather['rain'],
+                    'wind_speed' => $weather['wind_speed'],
+                    'storm_risk_status' => $weather['storm_risk_status'],
+                    'risk_score' => $weather['risk_score'],
+                    'recorded_at' => now(),
+                ]);
+                $weatherWasSynced = true;
+            }
+
+            return $weather;
+        });
+        $latestRisk = $weatherWasSynced
+            ? $riskAssessment->calculateCountryRisk($country)
+            : RiskScore::query()->where('country_code', $country->code)->latest('calculated_at')->first();
+        $stormZoneExposure = $riskAssessment->stormExposureForCoordinates(
+            (float) $country->latitude,
+            (float) $country->longitude,
+        );
+
         $forexTimeline = $exchangeRates->getCurrencyTrend($country->currency_code);
         $apiData = [
             'region' => $country->region,
@@ -60,11 +95,19 @@ class CountryDetailController extends Controller
             'population' => $country->population,
             'export' => $country->export_volume,
             'import' => $country->import_volume,
+            'weather' => $countryWeather,
+            'storm_zone' => $stormZoneExposure,
+            'risk_score' => $latestRisk?->total_score,
+            'weather_risk_score' => $latestRisk?->weather_score,
+            'risk_level' => $latestRisk?->risk_level,
             'forex_data' => $forexTimeline['values'] ?? [],
             'forex_labels' => $forexTimeline['labels'] ?? [],
         ];
         $relatedPorts = Port::query()->where('country_code', $country->code)->orderBy('name')->get();
-        $isWatched = Watchlist::query()->where('country_code', $country->code)->exists();
+        $isWatched = Watchlist::query()
+            ->where('user_id', auth()->id())
+            ->where('country_code', $country->code)
+            ->exists();
 
         return response()->view('ports.countries', compact('country', 'apiData', 'relatedPorts', 'isWatched'));
     }

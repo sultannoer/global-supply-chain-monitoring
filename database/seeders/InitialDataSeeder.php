@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use App\Models\Country;
 use App\Models\Port;
 use App\Models\Shipment;
@@ -15,12 +14,6 @@ class InitialDataSeeder extends Seeder
     public function run(): void
     {
         
-        User::factory()->create([
-            'name' => 'Admin Logistik',
-            'email' => 'admin@supplychain.com',
-        ]);
-
-       
         $jsonPath = database_path('ports.json');
         
         if (!File::exists($jsonPath)) {

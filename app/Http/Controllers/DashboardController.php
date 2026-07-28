@@ -3,29 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Port;
-use App\Services\WeatherService;
 use App\Services\ExchangeRateService;
-use App\Services\NewsService;
-use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    protected $weatherService;
     protected $exchangeRateService;
-    protected $newsService;
 
     public function __construct(
-        WeatherService $weatherService,
-        ExchangeRateService $exchangeRateService,
-        NewsService $newsService
+        ExchangeRateService $exchangeRateService
     ) {
-        $this->weatherService = $weatherService;
         $this->exchangeRateService = $exchangeRateService;
-        $this->newsService = $newsService;
     }
 
-    // Menambahkan parameter Request $request agar sistem bisa mendeteksi jenis akses
-    public function getliveMetrics(Request $request)
+    public function getLiveMetrics()
     {
         $ports = Port::with(['country'])->get();
 
@@ -66,20 +56,11 @@ class DashboardController extends Controller
             ];
         });
 
-        // =========================================================================
-        // KUNCI PINTAR DETEKSI SISTEM:
-        // Jika diakses sebagai API (oleh Postman/sistem B2B) atau via AJAX, mutahkan JSON
-        // =========================================================================
-        if ($request->wantsJson() || $request->is('api/*')) {
-            return response()->json([
-                'status' => 'success',
-                'system_time' => now()->toIso8601String(),
-                'total_nodes' => $metricsData->count(),
-                'data' => $metricsData
-            ], 200, [], JSON_PRETTY_PRINT);
-        }
-
-        // Jika dibuka operator lewat browser biasa, arahkan ke halaman dashboard visual mewah
-        return view('dashboard.ports_master', compact('metricsData'));
+        return response()->json([
+            'status' => 'success',
+            'system_time' => now()->toIso8601String(),
+            'total_nodes' => $metricsData->count(),
+            'data' => $metricsData,
+        ], 200, [], JSON_PRETTY_PRINT);
     }
 }
