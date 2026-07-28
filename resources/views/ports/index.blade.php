@@ -3,7 +3,7 @@
 @section('content')
 <div class="container-fluid p-0 bg-dark text-white min-vh-100 overflow-x-hidden dashboard-shell" style="font-family: 'Segoe UI', Roboto, sans-serif;">
     <!-- CONTAINER ELEMENT DATA JANGKAR AMAN DARI BLOKIR BROWSER -->
-    <div id="logixchain-radar-data" style="display: none;" 
+    <div id="geoport-radar-data" style="display: none;"
          data-ports='@json($enrichedPorts)' 
          data-countries='@json($enrichedCountries ?? [])'
          data-vessels='@json($enrichedVessels)' 
@@ -15,28 +15,34 @@
         <div class="col-lg-2 bg-black bg-opacity-50 border-end border-secondary border-opacity-25 d-flex flex-column justify-content-between p-3 dashboard-nav" style="min-height: 100vh;">
             <div>
                 <div class="d-flex align-items-center gap-2 mb-4 px-2">
-                    <i class="bi bi-shield-shaded text-primary fs-3"></i>
-                    <span class="fs-4 fw-bold tracking-wider text-uppercase text-white">LOGIXCHAIN</span>
+                    <i class="bi bi-anchor-fill text-info fs-3"></i>
+                    <div class="lh-sm">
+                        <span class="d-block fs-5 fw-bold tracking-wider text-uppercase text-white">GeoPort Analytics</span>
+                        <small class="text-info text-uppercase" style="font-size: 9px; letter-spacing: .08em;">Global Supply Chain</small>
+                    </div>
                 </div>
-                <div class="d-flex align-items-center gap-3 bg-secondary bg-opacity-10 p-2 rounded mb-4 border border-secondary border-opacity-10">
-                    <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white font-bold shadow" style="width: 38px; height: 38px;"><i class="bi bi-person-badge-fill"></i></div>
+                @php
+                    $currentUser = auth()->user();
+                @endphp
+                <div class="d-flex align-items-center gap-3 bg-secondary bg-opacity-10 p-3 rounded-3 mb-4 border border-info border-opacity-25 shadow-sm">
+                    <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white shadow" style="width: 44px; height: 44px; flex:0 0 44px;"><i class="bi bi-person-badge-fill fs-5"></i></div>
                     <div class="overflow-hidden">
-                        <h6 class="mb-0 small fw-bold text-truncate">Admin Logistics</h6>
-                        <small class="text-muted text-uppercase" style="font-size: 10px;">Global Controller</small>
+                        <div class="text-white-50 text-uppercase fw-semibold" style="font-size: 9px; letter-spacing: .08em;">Akun aktif</div>
+                        <h6 class="mb-1 fw-bold text-white text-truncate">{{ $currentUser?->name ?? 'Guest Operator' }}</h6>
+                        <span class="badge {{ $currentUser?->isAdmin() ? 'bg-warning text-dark' : 'bg-info text-dark' }} text-uppercase" style="font-size: 9px; letter-spacing: .06em;">{{ $currentUser?->isAdmin() ? 'Admin' : 'User' }}</span>
                     </div>
                 </div>
                 <ul class="nav flex-column gap-1">
                     <li class="nav-item"><a class="nav-link active rounded bg-primary text-white d-flex align-items-center gap-3 px-3 py-2.5 small fw-semibold" href="{{ url('/') }}"><i class="bi bi-grid-1x2-fill"></i> Live Dashboard</a></li>
                     <li class="nav-item"><a class="nav-link text-white-50 hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small" href="{{ route('risk-scores.index') }}"><i class="bi bi-shield-exclamation text-warning"></i> Risk Score Engine</a></li>
                     <li class="nav-item"><a class="nav-link text-white-50 hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small" href="{{ route('country-comparison.index') }}"><i class="bi bi-bar-chart text-info"></i> Country Comparison</a></li>
-                    <li class="nav-item"><a class="nav-link text-white-50 hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small" href="{{ route('watchlists.index') }}"><i class="bi bi-star-fill text-warning"></i> Favorite Monitoring</a></li>
+                    <li class="nav-item"><a class="nav-link text-white-50 hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small" href="{{ $currentUser?->isAdmin() ? route('admin.watchlists.index') : route('watchlists.index') }}"><i class="bi bi-star-fill text-warning"></i> {{ $currentUser?->isAdmin() ? 'Favorit User' : 'Favorite Monitoring' }}</a></li>
                     <li class="nav-item"><a class="nav-link text-white-50 hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small" href="{{ route('news-sentiment.index') }}"><i class="bi bi-newspaper text-info"></i> News Sentiment</a></li>
                     <li class="nav-item"><a class="nav-link text-white-50 hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small" href="{{ route('trends.index') }}"><i class="bi bi-graph-up-arrow text-success"></i> Historical Trends</a></li>
                     <li class="nav-item"><a class="nav-link text-white-50 hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small" href="{{ route('cargo.create') }}"><i class="bi bi-box-seam"></i> Input Cargo</a></li>
                     <li class="nav-item"><a id="sidebar-active-tracking" class="nav-link text-white-50 hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small" href="#"><i class="bi bi-cursor-fill text-success"></i> Active Tracking</a></li>
                     <li class="nav-item"><a class="nav-link text-white-50 hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small" href="{{ route('cargo.history') }}"><i class="bi bi-clock-history text-danger"></i> Log Riwayat</a></li>
-                    <li class="nav-item"><a class="nav-link text-white-50 hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small" href="{{ url('/api/live-metrics') }}" target="_blank"><i class="bi bi-anchor"></i> Ports Master</a></li>
-                    <li class="nav-item"><a class="nav-link text-white-50 hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small" href="#"><i class="bi bi-gear-fill"></i> Settings</a></li>
+                    <li class="nav-item"><a class="nav-link text-white-50 hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small" href="{{ auth()->user()?->isAdmin() ? route('admin.dashboard') : route('login') }}"><i class="bi bi-shield-lock-fill text-info"></i> Admin Dashboard</a></li>
                 </ul>
             </div>
         </div>
@@ -72,12 +78,63 @@
         <div class="col-lg-3 bg-black bg-opacity-40 border-start border-secondary border-opacity-25 d-flex flex-column p-4 dashboard-insights" style="min-height: 100vh; max-height: 100vh; overflow-y: auto;">
             <div class="mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="text-uppercase small fw-bold tracking-wider text-success mb-0"><i class="bi bi-check2-circle text-success"></i> Aktivitas Kapal Tiba</h6>
+                </div>
+                <div id="vesselArrivalContainerZone" class="mt-3">
+                    @foreach($arrivedVessels as $v)
+                        @if(($v['step'] ?? 0) >= 1500)
+                        <a href="{{ route('cargo.history', ['vessel' => $v['id']]) }}" class="arrival-report-link d-block bg-success bg-opacity-10 border-start border-3 border-success p-3 rounded shadow-sm mb-2 animate__animated animate__fadeIn">
+                            <div class="d-flex justify-content-between align-items-start mb-1"><span class="fw-bold text-success text-uppercase" style="font-size: 11px;">Arrival Report</span><small class="text-muted" style="font-size: 10px;">Selesai</small></div>
+                            <p class="mb-0 small text-white-50">Kapal <strong>{{ $v['name'] }}</strong> telah bersandar dengan aman di <strong>{{ $v['dest_name'] }}</strong>.</p>
+                        </a>
+                        @endif
+                    @endforeach
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-3">
                     <h6 class="text-uppercase small fw-bold tracking-wider text-danger mb-0"><i class="bi bi-exclamation-triangle-fill text-danger"></i> Automated Early Warning System</h6>
                     <small class="text-muted font-monospace" style="font-size: 11px;">{{ now()->format('d M Y') }}</small>
                 </div>
                 
                 <!-- CONTAINER LIVE RISK ALERT INTEGRATION FROM DATABASE -->
                 <div id="riskAlertLiveFeedBlock" class="d-flex flex-column gap-2 mb-3">
+                    @php
+                        $stormZones = collect($enrichedStorms ?? [])
+                            ->sortByDesc(fn ($zone) => strtoupper((string) ($zone['risk'] ?? '')) === 'HIGH' ? 2 : 1)
+                            ->values();
+                        $highStormZones = $stormZones->where('risk', 'HIGH');
+                        $mediumStormZones = $stormZones->where('risk', 'MEDIUM');
+                    @endphp
+
+                    <div class="p-3 rounded border border-info border-opacity-25 bg-info bg-opacity-10">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold text-info text-uppercase" style="font-size:10px;"><i class="bi bi-cloud-lightning-rain-fill me-1"></i> Monitoring Zona Cuaca</span>
+                            <small class="text-info-emphasis font-monospace">{{ $stormZones->count() }} titik</small>
+                        </div>
+                        <div class="d-flex gap-2 mb-2" style="font-size:10px;">
+                            <span class="badge text-bg-danger">HIGH: {{ $highStormZones->count() }}</span>
+                            <span class="badge text-bg-warning">MEDIUM: {{ $mediumStormZones->count() }}</span>
+                        </div>
+
+                        @forelse($stormZones->take(5) as $storm)
+                            @php $zoneColor = $storm['risk'] === 'HIGH' ? 'danger' : 'warning'; @endphp
+                            <button type="button"
+                                class="storm-zone-alert w-100 text-start border border-{{ $zoneColor }} border-opacity-25 bg-dark bg-opacity-50 rounded px-2 py-1 mb-1 text-white"
+                                data-lat="{{ $storm['lat'] }}" data-lng="{{ $storm['lng'] }}" data-radius="{{ $storm['radius_km'] }}">
+                                <span class="text-{{ $zoneColor }} fw-bold" style="font-size:10px;">{{ $storm['risk'] }} WEATHER</span>
+                                <span class="d-block text-white-50" style="font-size:10px;">{{ $storm['name'] }} · angin {{ number_format((float) $storm['wind'], 1) }} km/j · hujan {{ number_format((float) $storm['rain'], 1) }} mm</span>
+                            </button>
+                        @empty
+                            <small class="text-success d-block"><i class="bi bi-shield-check me-1"></i>Tidak ada zona cuaca Medium/High pada snapshot terbaru.</small>
+                        @endforelse
+                        @if($stormZones->count() > 5)
+                            <button type="button" class="btn btn-sm btn-outline-info w-100 mt-2 storm-zone-modal-trigger" data-bs-toggle="modal" data-bs-target="#stormZoneModal">
+                                <i class="bi bi-list-radar me-1"></i>Lihat {{ $stormZones->count() }} Zona Cuaca
+                            </button>
+                            <small class="text-white-50 d-block mt-2 text-center" style="font-size:10px;">Cari, filter, lalu fokuskan zona ke peta.</small>
+                        @endif
+                    </div>
+
                     @if(isset($activeAlerts) && $activeAlerts->count() > 0)
                         @foreach($activeAlerts as $alert)
                             @php
@@ -86,7 +143,7 @@
                             @endphp
                             <div class="p-2.5 rounded border border-{{ $badgeColor }} border-opacity-20 bg-{{ $badgeColor }} bg-opacity-10 animate__animated animate__headShake">
                                 <div class="d-flex justify-content-between align-items-center border-bottom border-light border-opacity-10 pb-1 mb-2" style="font-size: 10px;">
-                                    <span class="fw-bold text-{{ $badgeColor }} text-uppercase"><i class="bi {{ $iconType }}"></i> {{ $alert->alert_level }} {{ $alert->risk_type }}</span>
+                                    <span class="fw-bold text-{{ $badgeColor }} text-uppercase"><i class="bi {{ $iconType }}"></i> {{ str_starts_with($alert->message, '[ROUTE-ZONE]') ? 'ROUTE ' : '' }}{{ $alert->alert_level }} {{ $alert->risk_type }}</span>
                                     <small class="text-white-50 font-monospace">{{ $alert->created_at->diffForHumans() }}</small>
                                 </div>
                                 <p class="mb-0 small text-white-50 style-text-alert" style="font-size: 11px; line-height:1.4; text-align:justify;">
@@ -96,21 +153,17 @@
                         @endforeach
                     @else
                         <div class="bg-success bg-opacity-10 border border-success border-opacity-20 p-3 rounded text-center text-success small">
-                            <i class="bi bi-shield-check d-block mb-1 fs-4"></i> Satelit SCRM mengonfirmasi: Jalur pelayaran global dan stabilitas ekonomi kliring 100% aman.
+                            <i class="bi bi-shield-check d-block mb-1 fs-4"></i> Tidak ada alert operasional aktif dalam 24 jam terakhir.
                         </div>
                     @endif
                 </div>
 
-                <div class="d-flex justify-content-between align-items-center mb-3 mt-4">
-                    <h6 class="text-uppercase small fw-bold tracking-wider text-info mb-0"><i class="bi bi-rss-fill text-info"></i> Sensor Koordinat Pelayaran</h6>
-                </div>
                 
-                <!-- CONTAINER UTAMA FEED TRANSPONDER KKOORDINAT -->
-                <div id="radarNotificationFeed" class="d-flex flex-column gap-3"></div>
 
+                @if(false)
                 <!-- DAFTAR KAPAL YANG SUDAH SAMPAI -->
                 <div id="vesselArrivalContainerZone" class="mt-3">
-                    @foreach($enrichedVessels as $v)
+                    @foreach($arrivedVessels as $v)
                         @if(($v['step'] ?? 0) >= 1500)
                         <div class="bg-success bg-opacity-10 border-start border-3 border-success p-3 rounded shadow-sm mb-2 animate__animated animate__fadeIn">
                             <div class="d-flex justify-content-between align-items-start mb-1"><span class="fw-bold text-success text-uppercase" style="font-size: 11px;">⚓ Arrival Report</span><small class="text-muted" style="font-size: 10px;">Selesai</small></div>
@@ -119,15 +172,61 @@
                         @endif
                     @endforeach
                 </div>
+                @endif
             </div>
             
-            <div class="col-12 mt-auto border-top border-secondary border-opacity-25 pt-4">
-                <div class="d-flex align-items-center justify-content-between mb-3"><h6 class="text-uppercase small fw-bold tracking-wider text-success mb-0"><i class="bi bi-graph-up-arrow"></i> Live Forex Tracker</h6></div>
-                <div class="bg-dark bg-opacity-50 p-3 rounded border border-secondary border-opacity-25" style="height: 200px; position: relative;"><canvas id="currencyTrendChart"></canvas></div>
+        </div>
+    </div>
+</div>
+
+@if(($stormZones ?? collect())->isNotEmpty())
+<div class="modal fade" id="stormZoneModal" tabindex="-1" aria-labelledby="stormZoneModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg modal-fullscreen-sm-down">
+        <div class="modal-content storm-zone-modal">
+            <div class="modal-header border-bottom border-info border-opacity-25">
+                <div>
+                    <div class="small text-info text-uppercase fw-bold" style="letter-spacing:.09em;"><i class="bi bi-cloud-lightning-rain-fill me-1"></i>Weather Intelligence</div>
+                    <h5 class="modal-title fw-bold mb-0" id="stormZoneModalLabel">Seluruh Zona Cuaca Aktif</h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+            <div class="modal-body p-3 p-md-4">
+                <div class="storm-zone-toolbar mb-3">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input id="stormZoneSearch" type="search" class="form-control" placeholder="Cari nama pelabuhan atau zona cuaca..." autocomplete="off">
+                    </div>
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Filter level zona cuaca">
+                        <button type="button" class="btn btn-info storm-zone-filter active" data-storm-filter="ALL">Semua <span class="ms-1 opacity-75">{{ $stormZones->count() }}</span></button>
+                        <button type="button" class="btn btn-outline-danger storm-zone-filter" data-storm-filter="HIGH">High <span class="ms-1 opacity-75">{{ $highStormZones->count() }}</span></button>
+                        <button type="button" class="btn btn-outline-warning storm-zone-filter" data-storm-filter="MEDIUM">Medium <span class="ms-1 opacity-75">{{ $mediumStormZones->count() }}</span></button>
+                    </div>
+                </div>
+                <div id="stormZoneList" class="storm-zone-list">
+                    @foreach($stormZones as $storm)
+                        @php $zoneColor = $storm['risk'] === 'HIGH' ? 'danger' : 'warning'; @endphp
+                        <button type="button"
+                            class="storm-zone-alert storm-zone-list-item text-start"
+                            data-storm-risk="{{ $storm['risk'] }}"
+                            data-storm-name="{{ strtolower($storm['name']) }}"
+                            data-lat="{{ $storm['lat'] }}" data-lng="{{ $storm['lng'] }}" data-radius="{{ $storm['radius_km'] }}"
+                            data-bs-dismiss="modal">
+                            <span class="storm-zone-severity text-{{ $zoneColor }}">{{ $storm['risk'] }}</span>
+                            <span class="storm-zone-main"><strong>{{ $storm['name'] }}</strong><small><i class="bi bi-wind me-1"></i>{{ number_format((float) $storm['wind'], 1) }} km/j <span class="mx-1">·</span><i class="bi bi-cloud-rain me-1"></i>{{ number_format((float) $storm['rain'], 1) }} mm <span class="mx-1">·</span>radius {{ number_format((float) $storm['radius_km'], 0) }} km</small></span>
+                            <i class="bi bi-crosshair storm-zone-focus-icon"></i>
+                        </button>
+                    @endforeach
+                </div>
+                <div id="stormZoneEmpty" class="d-none text-center text-secondary py-5"><i class="bi bi-search fs-3 d-block mb-2"></i>Tidak ada zona yang cocok dengan filter ini.</div>
+            </div>
+            <div class="modal-footer justify-content-between border-top border-info border-opacity-25">
+                <small class="text-secondary"><i class="bi bi-crosshair me-1 text-info"></i>Klik zona untuk fokus ke peta dan membuka informasinya.</small>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Tutup</button>
             </div>
         </div>
     </div>
 </div>
+@endif
 @endsection
 
 @push('styles')
@@ -136,6 +235,37 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" crossorigin="anonymous">
 <style>
     .hover-light:hover { background-color: rgba(255, 255, 255, 0.05); color: #ffffff !important; }
+    .dashboard-shell { background-image:radial-gradient(circle at 50% 0%, rgba(14,116,144,.12), transparent 38rem); }
+    .dashboard-nav { background:linear-gradient(180deg, rgba(2,6,23,.96), rgba(8,15,30,.9)) !important; }
+    .dashboard-nav .nav-link { transition:transform .18s ease, background-color .18s ease, color .18s ease, box-shadow .18s ease; border:1px solid transparent; }
+    .dashboard-nav .nav-link:hover { transform:translateX(3px); border-color:rgba(34,211,238,.18); box-shadow:0 0 14px rgba(34,211,238,.08); }
+    .dashboard-map-header { background:linear-gradient(100deg, rgba(2,6,23,.94), rgba(8,47,73,.38)) !important; }
+    .dashboard-map-header h5 { letter-spacing:.02em; text-shadow:0 0 16px rgba(34,211,238,.2); }
+    .dashboard-search .form-control { transition:border-color .2s ease, box-shadow .2s ease, background-color .2s ease; }
+    .dashboard-search:focus-within .form-control, .dashboard-search:focus-within .input-group-text { border-color:#22d3ee !important; box-shadow:0 0 0 .18rem rgba(34,211,238,.12); }
+    .dashboard-insights { background:linear-gradient(180deg, rgba(2,6,23,.94), rgba(8,15,30,.9)) !important; }
+    .dashboard-insights > .mb-4 { padding: .85rem; border:1px solid rgba(56,189,248,.12); border-radius:.7rem; background:linear-gradient(145deg, rgba(15,23,42,.42), rgba(2,6,23,.2)); }
+    .arrival-report-link { color:inherit; text-decoration:none; }
+    .arrival-report-link:hover { color:inherit; background-color:rgba(16,185,129,.18) !important; border-color:#34d399 !important; }
+    .dashboard-insights h6 { letter-spacing:.08em; }
+    #radarNotificationFeed > *, #riskAlertLiveFeedBlock > * { transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease; cursor:pointer; }
+    #radarNotificationFeed > *:hover, #riskAlertLiveFeedBlock > *:hover { transform:translateX(-3px); border-color:rgba(34,211,238,.55) !important; box-shadow:0 0 18px rgba(34,211,238,.1); }
+    #riskAlertLiveFeedBlock > * { position:relative; overflow:hidden; }
+    #riskAlertLiveFeedBlock > *::before { content:""; position:absolute; left:0; top:0; bottom:0; width:2px; background:linear-gradient(180deg, #22d3ee, transparent); opacity:.7; }
+    #stormZoneModal { z-index:2200 !important; pointer-events:auto !important; }
+    .modal-backdrop { z-index:2190 !important; }
+    #stormZoneModal .modal-dialog, #stormZoneModal .modal-content, #stormZoneModal button, #stormZoneModal input { pointer-events:auto !important; }
+    .storm-zone-modal { background:linear-gradient(145deg,#101f35,#071220) !important; border:1px solid rgba(34,211,238,.42) !important; box-shadow:0 24px 60px rgba(0,0,0,.45),0 0 38px rgba(34,211,238,.09); }
+    .storm-zone-toolbar { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.75rem; align-items:center; }
+    .storm-zone-list { display:grid; gap:.55rem; }
+    .storm-zone-list-item { appearance:none; width:100%; display:grid; grid-template-columns:78px minmax(0,1fr) 24px; align-items:center; gap:.75rem; border:1px solid rgba(91,137,175,.38); border-radius:.55rem; padding:.7rem .8rem; color:#eaf2ff; background:linear-gradient(90deg,rgba(14,32,54,.9),rgba(7,17,30,.94)); transition:.18s ease; }
+    .storm-zone-list-item:hover { transform:translateX(3px); border-color:rgba(34,211,238,.7); background:linear-gradient(90deg,rgba(18,54,78,.94),rgba(10,29,47,.98)); box-shadow:0 8px 18px rgba(0,0,0,.16); }
+    .storm-zone-severity { font-size:.7rem; font-weight:800; letter-spacing:.08em; }
+    .storm-zone-main { min-width:0; display:block; }
+    .storm-zone-main strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.9rem; }
+    .storm-zone-main small { color:#9aacbf; display:block; margin-top:.18rem; font-size:.74rem; }
+    .storm-zone-focus-icon { color:#22d3ee; font-size:1rem; }
+    .storm-zone-filter.active { box-shadow:0 0 0 2px rgba(34,211,238,.16); }
     .leaflet-popup-content-wrapper { background: #121824 !important; color: #ffffff !important; border: 1px solid #334155; border-radius: 6px !important; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important; }
     .leaflet-popup-content { margin: 0 !important; width: min(340px, calc(100vw - 48px)) !important; }
     .leaflet-popup-tip { background: #121824 !important; border: 1px solid #334155; }
@@ -168,19 +298,28 @@
         .dashboard-map-header { align-items: flex-start !important; }
         .radar-map-shell { height: 62dvh !important; min-height: 390px; }
         .dashboard-insights { padding: 1rem !important; }
+        .storm-zone-toolbar { grid-template-columns:1fr; }
+        .storm-zone-filter { font-size:.72rem; }
+        .storm-zone-list-item { grid-template-columns:64px minmax(0,1fr) 18px; padding:.65rem; gap:.45rem; }
     }
 </style>
 @endpush
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
 <script>
     window.addEventListener("load", function () {
         if (typeof L === 'undefined') return;
-        var map, lastVesselMarker = null, shipLat = -2.34, shipLng = 108.56, currencyChart = null;
+        var map, lastVesselMarker = null, shipLat = -2.34, shipLng = 108.56;
+
+        // Modal dipindahkan langsung ke body supaya tidak terjebak stacking
+        // context Leaflet/dashboard dan seluruh kontrolnya selalu dapat diklik.
+        var stormZoneModal = document.getElementById('stormZoneModal');
+        if (stormZoneModal && stormZoneModal.parentElement !== document.body) {
+            document.body.appendChild(stormZoneModal);
+        }
         
-        var dataContainer = document.getElementById('logixchain-radar-data');
+        var dataContainer = document.getElementById('geoport-radar-data');
         var portDataList = JSON.parse(dataContainer.getAttribute('data-ports') || '[]');
         var countryDataList = JSON.parse(dataContainer.getAttribute('data-countries') || '[]');
         var vesselDataList = JSON.parse(dataContainer.getAttribute('data-vessels') || '[]');
@@ -224,8 +363,71 @@
         map.getPane('portPane').style.pointerEvents = 'auto';
 
         var portLayer = L.layerGroup().addTo(map);
+        var stormLayer = L.layerGroup().addTo(map);
         var portRenderFrame = null;
         var countryMarkersByCode = {};
+
+        var stormCirclesByCoordinates = {};
+        stormDataList.forEach(function (storm) {
+            var highRisk = String(storm.risk || '').toUpperCase() === 'HIGH';
+            var color = highRisk ? '#ef4444' : '#f59e0b';
+            var stormCircle = L.circle([parseFloat(storm.lat), parseFloat(storm.lng)], {
+                radius: Number(storm.radius_km) * 1000,
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.12,
+                weight: 2,
+                dashArray: '7, 7'
+            }).bindPopup('<strong style="color:' + color + '">METEO ZONE ' + (storm.risk || 'RISK') + '</strong><br>' + escapeHtml(storm.name) + '<br><small>Wind: ' + (storm.wind ?? 'N/A') + ' km/h · Rain: ' + (storm.rain ?? 'N/A') + ' mm<br>Source: ' + escapeHtml(storm.source || 'Open-Meteo') + '</small>').addTo(stormLayer);
+            stormCirclesByCoordinates[Number(storm.lat).toFixed(5) + '|' + Number(storm.lng).toFixed(5)] = stormCircle;
+        });
+
+        // Kartu sidebar dan daftar modal membawa operator langsung ke titik
+        // badai pada radar, tanpa mengubah status atau rute kapal apa pun.
+        function focusStormZone(lat, lng) {
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+            map.flyTo([lat, lng], Math.max(map.getZoom(), 6), { animate: true, duration: 0.7 });
+            window.setTimeout(function () {
+                var key = Number(lat).toFixed(5) + '|' + Number(lng).toFixed(5);
+                var circle = stormCirclesByCoordinates[key];
+                if (circle) circle.openPopup();
+            }, 720);
+        }
+        document.querySelectorAll('.storm-zone-alert').forEach(function (button) {
+            button.addEventListener('click', function () {
+                var lat = Number(button.dataset.lat), lng = Number(button.dataset.lng);
+                focusStormZone(lat, lng);
+            });
+        });
+
+        (function initStormZoneDirectory() {
+            var search = document.getElementById('stormZoneSearch');
+            var empty = document.getElementById('stormZoneEmpty');
+            var filters = Array.from(document.querySelectorAll('.storm-zone-filter'));
+            var items = Array.from(document.querySelectorAll('.storm-zone-list-item'));
+            if (!search || items.length === 0) return;
+            var activeFilter = 'ALL';
+            function applyFilter() {
+                var query = search.value.trim().toLowerCase();
+                var visible = 0;
+                items.forEach(function (item) {
+                    var matchesRisk = activeFilter === 'ALL' || item.dataset.stormRisk === activeFilter;
+                    var matchesQuery = !query || String(item.dataset.stormName || '').includes(query);
+                    var show = matchesRisk && matchesQuery;
+                    item.classList.toggle('d-none', !show);
+                    if (show) visible++;
+                });
+                empty.classList.toggle('d-none', visible !== 0);
+            }
+            search.addEventListener('input', applyFilter);
+            filters.forEach(function (filter) {
+                filter.addEventListener('click', function () {
+                    activeFilter = filter.dataset.stormFilter || 'ALL';
+                    filters.forEach(function (item) { item.classList.toggle('active', item === filter); });
+                    applyFilter();
+                });
+            });
+        })();
 
         function scheduleMapResize() {
             window.requestAnimationFrame(function () { map.invalidateSize({ pan: false }); });
@@ -244,16 +446,43 @@
             return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))); 
         }
 
+        function stormZoneForCoordinates(lat, lng) {
+            var strongest = null;
+            stormDataList.forEach(function (storm) {
+                var distance = calculateHaversineDistance(lat, lng, Number(storm.lat), Number(storm.lng));
+                if (distance > Number(storm.radius_km)) return;
+                var rank = String(storm.risk).toUpperCase() === 'HIGH' ? 3 : 2;
+                if (!strongest || rank > strongest.rank || (rank === strongest.rank && distance < strongest.distance_km)) {
+                    strongest = {
+                        risk: String(storm.risk || 'MEDIUM'),
+                        source_name: storm.name,
+                        distance_km: distance,
+                        radius_km: Number(storm.radius_km),
+                        rank: rank
+                    };
+                }
+            });
+            return strongest;
+        }
+
+        function routeIntersectsStorm(startLat, startLng, endLat, endLng, storm) {
+            var samples = 24;
+            for (var index = 0; index <= samples; index++) {
+                var ratio = index / samples;
+                var lat = startLat + ((endLat - startLat) * ratio);
+                var lng = startLng + ((endLng - startLng) * ratio);
+                if (calculateHaversineDistance(lat, lng, parseFloat(storm.lat), parseFloat(storm.lng)) <= Number(storm.radius_km)) return true;
+            }
+            return false;
+        }
+
         function renderRadarNotificationFeed() {
             var feedContainer = document.getElementById('radarNotificationFeed');
             if (!feedContainer) return;
 
             var activeVesselsCount = Object.keys(liveVesselStatusMemory).length;
             if (activeVesselsCount === 0) {
-                feedContainer.innerHTML = `
-                    <div class="bg-dark bg-opacity-40 border border-secondary border-opacity-15 p-3 rounded text-center text-muted small">
-                        <i class="bi bi-radar d-block mb-1 fs-4"></i> Menyinkronkan pemindai transponder...
-                    </div>`;
+                feedContainer.innerHTML = `<div class="bg-info bg-opacity-10 border border-info border-opacity-25 p-3 rounded text-center text-info small"><i class="bi bi-radar d-block mb-1 fs-4"></i><strong>RADAR STANDBY</strong><br>Belum ada kapal aktif yang perlu dipantau pada jalur pelayaran.</div>`;
                 return;
             }
 
@@ -283,10 +512,10 @@
                             <i class="bi bi-compass text-primary me-1"></i> ${v.vesselName.toUpperCase()}
                         </div>
                         <div class="${stormClass}" style="font-size: 11px;">
-                            <span class="fw-bold ${stormTitleColor}">${stormIcon} METEO ALERT</span><br>
+                            <span class="fw-bold ${stormTitleColor}"><i class="bi bi-broadcast-pin"></i> ROUTE STATUS</span><br>
                             ${v.isThreatened 
-                                ? `Kritis! Terjebak di <strong>${v.stormDetails.name}</strong> (${Math.round(v.stormDetails.dist)} KM).` 
-                                : `Jalur aman. Jarak terdekat ke badai: ${Math.round(v.stormDetails.dist)} KM.`
+                                ? `Risiko rute telah diteruskan ke Automated Early Warning System.`
+                                : `Rute kapal sedang dipantau dan tidak memiliki alert aktif.`
                             }
                         </div>
                         <div class="bg-dark bg-opacity-50 border-start border-3 border-warning p-2.5 rounded" style="font-size: 11px;">
@@ -299,61 +528,15 @@
             feedContainer.innerHTML = htmlContent;
         }
 
-        function initCurrencyChart(labelCurrency, currentRate) {
-            var ctx = document.getElementById('currencyTrendChart').getContext('2d');
-            if (currencyChart) currencyChart.destroy();
-            
-            var baseRate = parseFloat(currentRate);
-            labelCurrency = labelCurrency.toUpperCase();
-
-            if (!Number.isFinite(baseRate)) {
-                return;
-            }
-
-            currencyChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['LIVE NOW'],
-                    datasets: [{
-                        label: 'Kurs USD / ' + labelCurrency, 
-                        data: [baseRate],
-                        borderColor: '#4ade80', 
-                        backgroundColor: 'rgba(74, 222, 128, 0.1)', 
-                        borderWidth: 2, 
-                        pointBackgroundColor: '#4ade80',
-                        pointBorderColor: '#ffffff',
-                        pointRadius: 4,
-                        fill: true, 
-                        tension: 0.35
-                    }]
-                },
-                options: {
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { 
-                            display: true, 
-                            labels: { color: '#94a3b8', font: { size: 10, family: 'monospace' } } 
-                        }
-                    },
-                    scales: { 
-                        x: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.03)' } }, 
-                        y: { 
-                            ticks: { color: '#64748b', font: { size: 9 } }, 
-                            grid: { color: 'rgba(255,255,255,0.03)' },
-                            suggestedMin: baseRate * 0.99,
-                            suggestedMax: baseRate * 1.01
-                        } 
-                    }
-                }
-            });
-        }
-
-        if (typeof Chart !== 'undefined') initCurrencyChart('USD', 1);
-
         function buildPortPopup(port) {
+            var zoneExposure = port.storm_zone || stormZoneForCoordinates(Number(port.lat), Number(port.lng));
+            var zoneTone = zoneExposure && String(zoneExposure.risk).toUpperCase() === 'HIGH' ? '#ef4444' : '#f59e0b';
+            var zoneImpact = zoneExposure
+                ? String(zoneExposure.risk).toUpperCase() + ' dari ' + escapeHtml(zoneExposure.source_name) + ' (' + Math.round(Number(zoneExposure.distance_km)) + ' km)'
+                : 'Tidak terdampak zona badai aktif';
             return `
                 <div style="width: 340px; font-family: 'Courier New', monospace; font-size: 12px; color: #e2e8f0; line-height: 1.4;">
+                    <div style="padding: 8px 10px; border-bottom: 1px solid #334155; background: #172018;"><span style="color:#4ade80; font-weight:bold;">LOCAL STORM:</span> ${port.storm_risk_status ?? 'N/A'}<br><span style="color:#38bdf8; font-weight:bold;">RAINFALL:</span> ${port.rain ?? 'N/A'} mm | <span style="color:#fbbf24; font-weight:bold;">WEATHER SCORE:</span> ${port.risk_score ?? 'N/A'}/100<br><span style="color:${zoneTone}; font-weight:bold;">ZONE IMPACT:</span> ${zoneImpact}</div>
                     <div style="padding: 8px 10px; background: #1e293b; border-bottom: 2px solid #0284c7; font-weight: bold; color: #38bdf8;">⚓ PORT LOGISTICS: ${port.name.toUpperCase()}</div>
                     <div style="padding: 4px 10px; font-size: 11px; background: rgba(56, 189, 248, 0.1); color: #38bdf8; border-bottom: 1px solid #334155; text-align: center; font-weight: bold;">📡 RADAR STATUS: OPERATIONAL ACTIVE</div>
                     <div style="padding: 8px 10px; border-bottom: 1px solid #334155;">📍 LAT/LNG HUB: ${parseFloat(port.lat).toFixed(4)}, ${parseFloat(port.lng).toFixed(4)}<br>Region Hub: 🌍 <strong>${port.country.toUpperCase()}</strong></div>
@@ -368,8 +551,6 @@
             portLayer.clearLayers();
             var visibleBounds = map.getBounds().pad(0.15);
 
-            // At world view, group nearby ports so users can still see port
-            // coverage without creating thousands of individual markers.
             if (map.getZoom() < 5) {
                 var bucketSize = map.getZoom() <= 2 ? 24 : (map.getZoom() === 3 ? 16 : 10);
                 var buckets = {};
@@ -418,7 +599,6 @@
                 }).addTo(portLayer);
                 portMarker.bindPopup(buildPortPopup(port), { maxWidth: 340 })
                     .on('click', function () {
-                        initCurrencyChart(port.currency, port.rate);
                         if (port._liveLoaded || port._liveLoading) return;
                         port._liveLoading = true;
                         portMarker.setPopupContent('<div class="p-3 text-center text-info">Memuat data live pelabuhan...</div>');
@@ -429,12 +609,14 @@
                                 port.temp = live.temp ?? 'N/A';
                                 port.wind = live.wind ?? 'N/A';
                                 port.rain = live.rain ?? 'N/A';
+                                port.storm_risk_status = live.storm_risk_status ?? port.storm_risk_status ?? 'N/A';
+                                port.risk_score = live.port_risk_score ?? port.risk_score ?? 'N/A';
+                                port.storm_zone = live.storm_zone || null;
                                 port.rate = live.rate ?? 'N/A';
                                 port.gdp = Number.isFinite(Number(live.gdp)) ? '$' + (Number(live.gdp) / 1e9).toFixed(1) + 'B' : 'N/A';
                                 port.inflation = Number.isFinite(Number(live.inflation)) ? Number(live.inflation).toFixed(2) + '%' : 'N/A';
                                 port._liveLoaded = true;
                                 portMarker.setPopupContent(buildPortPopup(port));
-                                initCurrencyChart(port.currency, port.rate);
                             })
                             .catch(function() { portMarker.setPopupContent('<div class="p-3 text-center text-warning">Data live tidak tersedia. Coba klik marker lagi.</div>'); })
                             .finally(function() { port._liveLoading = false; });
@@ -568,6 +750,11 @@
 
             function buildCountryPopup(country) {
             var cCodeFixed = country.flag_code || null;
+            var zoneExposure = country.storm_zone || stormZoneForCoordinates(Number(country.lat), Number(country.lng));
+            var zoneTone = zoneExposure && String(zoneExposure.risk).toUpperCase() === 'HIGH' ? '#ef4444' : '#f59e0b';
+            var zoneImpact = zoneExposure
+                ? String(zoneExposure.risk).toUpperCase() + ' dari ' + escapeHtml(zoneExposure.source_name) + ' (' + Math.round(Number(zoneExposure.distance_km)) + ' km)'
+                : 'Tidak terdampak zona badai aktif';
 
             // 🚀 TOMBOL BARU FIX: Menyematkan tautan analitik dinamis makro otonom negara di bagian paling bawah kontainer popup
             return `
@@ -590,8 +777,10 @@
                     </div>
                     
                     <div style="padding: 8px 10px; border-bottom: 1px solid #334155; background: #102a2f;">
-                        <span style="color:#38bdf8; font-weight:bold;">COUNTRY WEATHER:</span><br>
-                        Suhu: <span style="color:#4ade80;">${country.weather?.temp ?? 'N/A'}°C</span> | Angin: ${country.weather?.wind_speed ?? 'N/A'} km/h | Hujan: ${country.weather?.rain ?? 'N/A'} mm
+                        <span style="color:#38bdf8; font-weight:bold;">LOCAL WEATHER:</span>
+                        <span style="color:${country.weather?.storm_risk_status === 'High' ? '#ef4444' : (country.weather?.storm_risk_status === 'Medium' ? '#f59e0b' : '#4ade80')}; font-weight:bold; float:right;">${country.weather?.storm_risk_status ?? 'N/A'} STORM · ${country.risk?.weather_score ?? 'N/A'}/100</span><br>
+                        Suhu: <span style="color:#4ade80;">${country.weather?.temp ?? 'N/A'}°C</span> | Angin: ${country.weather?.wind_speed ?? 'N/A'} km/h | Hujan: ${country.weather?.rain ?? 'N/A'} mm<br>
+                        <span style="color:${zoneTone}; font-weight:bold;">ZONE IMPACT:</span> ${zoneImpact}
                     </div>
                     <div style="padding: 8px 10px; border-bottom: 1px solid #334155; background: #0f172a;">
                         <span style="color:#94a3b8; font-weight:bold;">📊 MACRO DATA INDICATORS:</span><br>
@@ -628,9 +817,10 @@
                         country.import = Number.isFinite(Number(live.import)) ? '$' + (Number(live.import) / 1e9).toFixed(1) + 'B' : 'N/A';
                         country.rate = live.rate ?? 'N/A';
                         country.weather = live.weather || null;
+                        country.risk = live.risk || null;
+                        country.storm_zone = live.storm_zone || null;
                         country._liveLoaded = true;
                         countryMarker.setPopupContent(buildCountryPopup(country));
-                        initCurrencyChart(country.currency, country.rate);
                     })
                     .catch(function() { countryMarker.setPopupContent('<div class="p-3 text-center text-warning">Data live tidak tersedia. Coba klik marker lagi.</div>'); })
                     .finally(function() { country._liveLoading = false; });
@@ -677,7 +867,18 @@
                 
                 var step = parseInt(vessel.step ?? 0), totalSteps = 1500; 
 
-                var visualRouteLine = L.polyline([[origLat, origLng], [targetLat, targetLng]], { color: '#38bdf8', weight: 2.5, opacity: 0.85, dashArray: '6, 8', lineJoin: 'round' }).addTo(map);
+                var routeStorm = null;
+                stormDataList.forEach(function (storm) {
+                    if (routeIntersectsStorm(origLat, origLng, targetLat, targetLng, storm)) routeStorm = storm;
+                });
+                var isArrived = parseInt(vessel.step ?? 0) >= totalSteps || vessel.status === 'ARRIVED';
+                var visualRouteLine = L.polyline([[origLat, origLng], [targetLat, targetLng]], {
+                    color: isArrived ? '#22c55e' : (routeStorm ? '#ef4444' : '#38bdf8'),
+                    weight: isArrived ? 2 : (routeStorm ? 4 : 2.5),
+                    opacity: 0.9,
+                    dashArray: isArrived ? '4, 8' : (routeStorm ? '10, 6' : '6, 8'),
+                    lineJoin: 'round'
+                }).addTo(map);
 
                 var ratio = step / totalSteps;
                 if (ratio > 1) ratio = 1;
@@ -688,7 +889,7 @@
                 var marker = L.marker([currentLat, currentLng], { icon: shipIcon }).addTo(map);
 
                 if (step < totalSteps) {
-                    var checkThreat = false, nearStormName = '', mindist = 99999;
+                    var checkThreat = Boolean(routeStorm), nearStormName = routeStorm ? routeStorm.name : '', mindist = routeStorm ? calculateHaversineDistance(currentLat, currentLng, parseFloat(routeStorm.lat), parseFloat(routeStorm.lng)) : 99999;
                     stormDataList.forEach(st => {
                         var d = calculateHaversineDistance(currentLat, currentLng, parseFloat(st.lat), parseFloat(st.lng));
                         if(d <= st.radius_km) { checkThreat = true; mindist = d; nearStormName = st.name; }
@@ -699,16 +900,15 @@
                         vesselName: vessel.name,
                         portName: vessel.dest_name,
                         isThreatened: checkThreat,
-                        stormDetails: { name: nearStormName, dist: mindist }
+                        stormDetails: { name: nearStormName, dist: mindist },
+                        routeWarning: Boolean(routeStorm)
                     };
                 }
 
                 if (step >= totalSteps) {
                     marker.bindPopup(`<div style="width: 280px; font-family: monospace; color: #4ade80; font-size: 11px; padding: 10px; background: #121824;">⚓ <strong>ARRIVAL REPORT</strong><br>Vessel: ${vessel.name}<br>Status: ✅ SUCCESSFULLY BERTHED<br>Terminal: ${vessel.dest_name}</div>`);
                 } else {
-                    marker.bindPopup(generateDynamicVesselPopup(currentLat, currentLng, 'ON VOYAGE', false, vessel.currency_loss, vessel.storm_alert)).on('click', function() {
-                        initCurrencyChart(vessel.currency_code, vessel.exchange_rate);
-                    });
+                    marker.bindPopup(generateDynamicVesselPopup(currentLat, currentLng, routeStorm ? 'WARNING: ROUTE INTERSECTS STORM ZONE' : 'ON VOYAGE', Boolean(routeStorm), routeStorm ? 'LOSS METRIC: Route risk penalty applied (-15%)' : vessel.currency_loss, vessel.storm_alert));
                 }
 
                 if (step < totalSteps) {
@@ -777,6 +977,13 @@
                             }
                         }
 
+                        if (!insideDangerZone && routeStorm) {
+                            statusString = 'WARNING: ROUTE INTERSECTS STORM ZONE';
+                            stormString = 'ALERT: Planned route crosses ' + routeStorm.name;
+                            lossString = 'LOSS METRIC: Route risk penalty applied (-15%)';
+                            insideDangerZone = true;
+                        }
+
                         if (insideDangerZone) {
                             var pulseDiv = marker._icon.querySelector('.animate__pulse');
                             if (pulseDiv) { pulseDiv.style.background = 'rgba(239, 68, 68, 0.7)'; pulseDiv.style.filter = 'blur(2px)'; }
@@ -789,7 +996,8 @@
                             vesselName: vessel.name,
                             portName: vessel.dest_name,
                             isThreatened: insideDangerZone,
-                            stormDetails: { name: closestStormName, dist: closestStormDist }
+                            stormDetails: { name: closestStormName, dist: closestStormDist },
+                            routeWarning: Boolean(routeStorm)
                         };
 
                         renderRadarNotificationFeed();
@@ -815,7 +1023,11 @@
             map.flyTo([shipLat, shipLng], 4);
             setTimeout(function() { if (lastVesselMarker) lastVesselMarker.openPopup(); }, 1000);
         } else {
-            // FALLBACK JIKA ANTRIAN KANBAN RADAR ARMADA SEDANG KOSONG
+            // No active shipment: retain the real map without fictional vessel data.
+            renderRadarNotificationFeed();
+            lastVesselMarker = null;
+            if (false) {
+            // Legacy simulated fallback retained temporarily for reference.
             var fallbackMarker = L.marker([shipLat, shipLng], { icon: shipIcon }).addTo(map);
             var defaultPopupTemplate = `
                 <div style="width: 340px; font-family: 'Courier New', monospace; font-size: 12px; color: #e2e8f0; line-height: 1.4;">
@@ -847,6 +1059,7 @@
 
             lastVesselMarker = fallbackMarker;
             L.polyline([[-6.1014, 106.8831], [-2.34, 108.56], [5.50, 95.89], [5.90, 80.20], [11.85, 51.25], [12.78, 43.26], [27.80, 33.90], [32.50, 32.40], [36.50, 12.00], [35.95, -5.50], [48.00, -5.00], [50.50, -0.50], [51.9488, 4.1430]], { color: '#28a745', weight: 2.5, opacity: 0.85, dashArray: '6, 8', lineJoin: 'round' }).addTo(map);
+            }
         }
 
         var trackingBtn = document.getElementById('sidebar-active-tracking');
@@ -864,6 +1077,20 @@
                 .catch(err => console.error(err));
             }
         };
+
+        // Make the two live insight feeds collapsible without changing the layout.
+        document.querySelectorAll('.dashboard-insights h6').forEach(function (heading) {
+            var text = (heading.textContent || '').toLowerCase();
+            var target = text.includes('sensor') ? document.getElementById('radarNotificationFeed') : document.getElementById('riskAlertLiveFeedBlock');
+            if (!target) return;
+            heading.setAttribute('role', 'button');
+            heading.setAttribute('title', 'Klik untuk tampil/sembunyikan panel');
+            heading.style.cursor = 'pointer';
+            heading.addEventListener('click', function () {
+                target.classList.toggle('d-none');
+                heading.classList.toggle('opacity-50');
+            });
+        });
     });
 </script>
 @endpush
