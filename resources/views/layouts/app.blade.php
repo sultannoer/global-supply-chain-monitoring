@@ -99,6 +99,9 @@
                 @if(auth()->user()?->isAdmin())
                     <a class="nav-link" href="{{ route('admin.dashboard') }}"><i class="bi bi-shield-lock-fill text-info"></i>Admin Console</a>
                 @endif
+                @auth
+                    <div class="border-top border-secondary border-opacity-25 mt-2 pt-2"><form method="POST" action="{{ route('logout') }}">@csrf<button type="submit" class="nav-link w-100 text-start text-danger"><i class="bi bi-box-arrow-right"></i>Keluar dari akun</button></form></div>
+                @endauth
             </nav>
         </div>
     </div>

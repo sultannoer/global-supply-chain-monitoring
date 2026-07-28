@@ -188,7 +188,7 @@
 </div>
 
 <!-- Mobile drawers keep both desktop sidebars accessible without shrinking the radar map. -->
-<div class="offcanvas offcanvas-start mobile-radar-drawer d-lg-none" tabindex="-1" id="mobileNavigationDrawer" aria-labelledby="mobileNavigationDrawerLabel">
+<div class="offcanvas offcanvas-bottom mobile-radar-drawer d-lg-none" tabindex="-1" id="mobileNavigationDrawer" aria-labelledby="mobileNavigationDrawerLabel">
     <div class="offcanvas-header border-bottom border-info border-opacity-25">
         <div>
             <div class="small text-info text-uppercase fw-bold" style="letter-spacing:.1em;"><i class="bi bi-diagram-3 me-1"></i>Control access</div>
@@ -198,6 +198,10 @@
     </div>
     <div id="mobileNavigationDrawerContent" class="offcanvas-body mobile-drawer-content">
         <div>
+            <div class="d-flex align-items-center gap-3 bg-secondary bg-opacity-10 p-3 rounded-3 mb-3 border border-info border-opacity-25">
+                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white" style="width:40px;height:40px;flex:0 0 40px;"><i class="bi bi-person-badge-fill"></i></div>
+                <div class="overflow-hidden"><div class="text-white-50 text-uppercase fw-semibold" style="font-size:9px;letter-spacing:.08em;">Akun aktif</div><div class="fw-bold text-white text-truncate">{{ $currentUser?->name ?? 'Guest Operator' }}</div><span class="badge {{ $currentUser?->isAdmin() ? 'bg-warning text-dark' : 'bg-info text-dark' }} text-uppercase" style="font-size:9px;">{{ $currentUser?->isAdmin() ? 'Admin' : 'User' }}</span></div>
+            </div>
             <div class="small text-secondary text-uppercase fw-bold mb-2" style="letter-spacing:.08em;">Akses operasional</div>
             <nav class="nav flex-column gap-1">
                 <a class="nav-link active rounded bg-primary text-white" href="{{ url('/') }}"><i class="bi bi-grid-1x2-fill"></i>Live Dashboard</a>
@@ -210,12 +214,15 @@
                 <button id="mobileSidebarActiveTracking" type="button" class="nav-link w-100 text-start"><i class="bi bi-cursor-fill text-success"></i>Active Tracking</button>
                 <a class="nav-link" href="{{ route('cargo.history') }}"><i class="bi bi-clock-history text-danger"></i>Log Riwayat</a>
                 <a class="nav-link" href="{{ $currentUser?->isAdmin() ? route('admin.dashboard') : route('login') }}"><i class="bi bi-shield-lock-fill text-info"></i>Admin Dashboard</a>
+                @auth
+                    <div class="border-top border-secondary border-opacity-25 mt-2 pt-2"><form method="POST" action="{{ route('logout') }}">@csrf<button type="submit" class="nav-link w-100 text-start text-danger"><i class="bi bi-box-arrow-right"></i>Keluar dari akun</button></form></div>
+                @endauth
             </nav>
         </div>
     </div>
 </div>
 
-<div class="offcanvas offcanvas-end mobile-radar-drawer d-lg-none" tabindex="-1" id="mobileInsightsDrawer" aria-labelledby="mobileInsightsDrawerLabel">
+<div class="offcanvas offcanvas-bottom mobile-radar-drawer d-lg-none" tabindex="-1" id="mobileInsightsDrawer" aria-labelledby="mobileInsightsDrawerLabel">
     <div class="offcanvas-header border-bottom border-info border-opacity-25">
         <div>
             <div class="small text-warning text-uppercase fw-bold" style="letter-spacing:.1em;"><i class="bi bi-radar me-1"></i>Live intelligence</div>
@@ -326,7 +333,7 @@
     .dashboard-insights { background:linear-gradient(180deg, rgba(2,6,23,.94), rgba(8,15,30,.9)) !important; }
     .dashboard-insights > .mb-4 { padding: .85rem; border:1px solid rgba(56,189,248,.12); border-radius:.7rem; background:linear-gradient(145deg, rgba(15,23,42,.42), rgba(2,6,23,.2)); }
     .dashboard-mobile-controls { display:none; }
-    .mobile-radar-drawer { width:min(88vw, 365px) !important; color:#eaf2ff; background:linear-gradient(155deg,#0d1d33,#050c17 74%) !important; border-color:rgba(34,211,238,.48) !important; box-shadow:0 0 42px rgba(0,0,0,.52),0 0 25px rgba(34,211,238,.12); }
+    .mobile-radar-drawer { color:#eaf2ff; background:linear-gradient(155deg,#0d1d33,#050c17 74%) !important; border-color:rgba(34,211,238,.48) !important; box-shadow:0 -18px 42px rgba(0,0,0,.52),0 0 25px rgba(34,211,238,.12); }
     .mobile-radar-drawer .offcanvas-header { background:linear-gradient(90deg,rgba(13,47,73,.6),rgba(7,17,29,.7)); }
     .mobile-drawer-content > div { padding:.85rem; border:1px solid rgba(56,189,248,.18); border-radius:.7rem; background:linear-gradient(145deg,rgba(15,29,49,.84),rgba(5,13,24,.75)); }
     .mobile-drawer-content .nav { gap:.35rem !important; }
@@ -371,11 +378,15 @@
     .port-count-label { background: transparent; border: 0; box-shadow: none; color: #fff; font-weight: 700; font-size: 10px; text-shadow: 0 1px 3px #020617; }
 
     @media (max-width: 991.98px) {
+        html, body { width:100%; max-width:100%; overflow-x:hidden; }
+        .dashboard-shell, .dashboard-grid, .dashboard-map-column { width:100%; max-width:100vw; min-width:0; overflow-x:clip; }
         .dashboard-grid { min-height: 0 !important; }
         .dashboard-map-column { order: 1; min-height: 0 !important; }
         .dashboard-nav { order: 2; min-height: auto !important; }
         .dashboard-insights { order: 3; min-height: auto !important; max-height: none !important; }
         .dashboard-nav, .dashboard-insights { display:none !important; }
+        .mobile-radar-drawer { width:100% !important; max-width:100vw !important; height:min(86dvh, 680px) !important; border-left:0 !important; border-right:0 !important; border-bottom:0 !important; border-radius:1rem 1rem 0 0; }
+        .mobile-radar-drawer .offcanvas-body { overflow-y:auto; overscroll-behavior:contain; padding-bottom:max(1rem, env(safe-area-inset-bottom)); }
         .dashboard-mobile-controls { position:fixed; z-index:1030; left:max(.75rem, env(safe-area-inset-left)); right:max(.75rem, env(safe-area-inset-right)); bottom:max(.75rem, env(safe-area-inset-bottom)); display:grid; grid-template-columns:1fr 1fr; gap:.5rem; width:auto; order:2; padding:.45rem; border:1px solid rgba(34,211,238,.38); border-radius:.75rem; background:linear-gradient(100deg,rgba(5,15,28,.96),rgba(12,39,62,.95)); box-shadow:0 14px 30px rgba(0,0,0,.34),0 0 18px rgba(34,211,238,.1); }
         .dashboard-mobile-controls .btn { min-height:40px; font-size:.78rem; white-space:nowrap; }
         .radar-map-shell { height: min(68dvh, 640px) !important; min-height: 440px; }
