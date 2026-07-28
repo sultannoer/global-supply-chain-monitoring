@@ -5,7 +5,7 @@
     <div class="row g-0 min-vh-100">
         
         
-        <div class="col-lg-2 bg-black bg-opacity-50 border-end border-secondary border-opacity-25 d-flex flex-column justify-content-between p-3" style="min-height: 100vh;">
+        <div class="col-lg-2 bg-black bg-opacity-50 border-end border-secondary border-opacity-25 d-none d-lg-flex flex-column justify-content-between p-3" style="min-height: 100vh;">
             <div>
                 <div class="d-flex align-items-center gap-2 mb-4 px-2">
                     <i class="bi bi-anchor-fill text-info fs-3"></i>

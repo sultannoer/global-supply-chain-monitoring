@@ -38,13 +38,16 @@
         .admin-content .alert { border:1px solid rgba(255,255,255,.12)!important; box-shadow:inset 3px 0 0 currentColor,0 10px 22px rgba(0,0,0,.1); }
         ::-webkit-scrollbar { width:10px; height:10px; } ::-webkit-scrollbar-thumb { background:#334155; border-radius:10px; } ::-webkit-scrollbar-track { background:#0b1220; }
         .pagination { --bs-pagination-bg:#111827; --bs-pagination-border-color:#334155; --bs-pagination-color:#cbd5e1; --bs-pagination-hover-bg:#1e293b; --bs-pagination-hover-color:#fff; --bs-pagination-active-bg:#0891b2; --bs-pagination-active-border-color:#0891b2; --bs-pagination-disabled-bg:#0f172a; --bs-pagination-disabled-border-color:#334155; }
-        @media (max-width: 900px) { .admin-shell { grid-template-columns:1fr; } .admin-sidebar { position:static; height:auto; } .admin-nav { flex-direction:row!important; flex-wrap:wrap; } .admin-sidebar .mt-auto { margin-top:1rem!important; } }
+        .admin-mobile-drawer { width:min(88vw,365px)!important; background:linear-gradient(155deg,#0d1d33,#050c17 74%)!important; color:#eaf2ff; border-color:rgba(34,211,238,.48)!important; }
+        .admin-mobile-drawer .offcanvas-header { background:linear-gradient(90deg,rgba(13,47,73,.6),rgba(7,17,29,.7)); }
+        .admin-mobile-drawer .admin-sidebar { display:flex!important; position:static!important; height:auto!important; min-height:100%!important; padding:0!important; background:transparent!important; border:0!important; box-shadow:none!important; }
+        @media (max-width: 900px) { .admin-shell { grid-template-columns:1fr; } .admin-shell > .admin-sidebar { display:none!important; } .admin-content { padding:1rem; } .admin-topbar { padding:.75rem 1rem; } }
     </style>
     @stack('styles')
 </head>
 <body>
 <div class="admin-shell">
-    <aside class="admin-sidebar d-flex flex-column">
+    <aside id="adminDesktopSidebar" class="admin-sidebar d-flex flex-column">
         <a href="{{ route('admin.dashboard') }}" class="admin-brand"><i class="bi bi-anchor-fill"></i><span>GeoPort Analytics<small class="d-block text-info text-uppercase" style="font-size:.55rem;letter-spacing:.12em;">Admin Console</small></span></a>
         <div class="small text-uppercase text-secondary mt-4 mb-2 px-2">Management</div>
         <nav class="nav flex-column admin-nav gap-1">
@@ -60,7 +63,7 @@
     </aside>
     <div class="admin-main">
         <header class="admin-topbar">
-            <div><div class="fw-semibold">@yield('page-heading', 'Admin Dashboard')</div><small class="text-secondary">Kontrol data dan akses sistem</small></div>
+            <div class="d-flex align-items-center gap-2"><button class="btn btn-sm btn-outline-info d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#adminMobileNavigation" aria-controls="adminMobileNavigation" aria-label="Buka menu admin"><i class="bi bi-list fs-5"></i></button><div><div class="fw-semibold">@yield('page-heading', 'Admin Dashboard')</div><small class="text-secondary">Kontrol data dan akses sistem</small></div></div>
             <div class="d-flex align-items-center gap-3">
                 <div class="text-end d-none d-sm-block"><small class="d-block text-secondary text-uppercase" style="font-size:.6rem;letter-spacing:.08em;">Akun aktif</small><div class="small fw-semibold text-white">{{ auth()->user()->name }}</div><span class="badge bg-warning text-dark text-uppercase" style="font-size:.58rem;">Admin</span></div>
                 <form method="POST" action="{{ route('logout') }}">@csrf<button class="btn btn-outline-danger btn-sm"><i class="bi bi-box-arrow-right me-1"></i>Keluar</button></form>
@@ -74,8 +77,20 @@
         </main>
     </div>
 </div>
+<div class="offcanvas offcanvas-start admin-mobile-drawer d-md-none" tabindex="-1" id="adminMobileNavigation" aria-labelledby="adminMobileNavigationLabel">
+    <div class="offcanvas-header border-bottom border-info border-opacity-25"><div><div class="small text-info text-uppercase fw-bold" style="letter-spacing:.1em;">Admin command</div><h5 class="offcanvas-title fw-bold mb-0" id="adminMobileNavigationLabel">Menu Admin</h5></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Tutup"></button></div>
+    <div id="adminMobileNavigationContent" class="offcanvas-body"></div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    (function () {
+        const source = document.getElementById('adminDesktopSidebar');
+        const target = document.getElementById('adminMobileNavigationContent');
+        if (!source || !target) return;
+        const copy = source.cloneNode(true);
+        copy.removeAttribute('id');
+        target.replaceChildren(copy);
+    })();
     document.querySelectorAll('form[method="POST"]:not([data-no-submit-feedback])').forEach(form => form.addEventListener('submit', () => {
         const button = form.querySelector('button[type="submit"]');
         if (!button || button.disabled) return;

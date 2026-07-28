@@ -38,6 +38,10 @@
         .page-reveal { animation:gp-reveal .35s ease both; }
         .back-dashboard { display:inline-flex; align-items:center; gap:.45rem; padding:.55rem .9rem; border:1px solid rgba(56,189,248,.45); border-radius:.5rem; color:#7dd3fc !important; background:rgba(14,116,144,.14); font-weight:600; text-decoration:none; transition:.2s ease; }
         .back-dashboard:hover { color:#fff !important; background:rgba(14,116,144,.35); border-color:#38bdf8; transform:translateX(-2px); }
+        .global-mobile-drawer { width:min(88vw,365px)!important; color:var(--gp-text); background:linear-gradient(155deg,#0d1d33,#050c17 74%)!important; border-color:rgba(34,211,238,.48)!important; box-shadow:0 0 42px rgba(0,0,0,.52),0 0 25px rgba(34,211,238,.12); }
+        .global-mobile-drawer .offcanvas-header { background:linear-gradient(90deg,rgba(13,47,73,.6),rgba(7,17,29,.7)); border-color:var(--gp-line)!important; }
+        .global-mobile-drawer .nav-link { color:#aabbd1; border:1px solid transparent; border-radius:.55rem; padding:.72rem .8rem; display:flex; gap:.7rem; align-items:center; }
+        .global-mobile-drawer .nav-link:hover,.global-mobile-drawer .nav-link:focus { color:#fff; background:rgba(34,211,238,.1); border-color:rgba(34,211,238,.28); }
         main h1, main h2, main h3 { text-shadow:0 0 22px rgba(34,211,238,.1); }
         main .text-white-50 { color:var(--gp-muted) !important; }
         main .input-group-text { background:rgba(10,29,48,.92); color:var(--gp-cyan); border-color:rgba(91,137,175,.48); }
@@ -61,6 +65,9 @@
         <div class="container">
             <a class="navbar-brand fw-bold" href="{{ route('ports.index') }}">⚓ GeoPort Analytics</a>
             <div class="d-flex gap-2 ms-auto">
+                <button class="btn btn-sm btn-outline-info d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#globalMobileNavigation" aria-controls="globalMobileNavigation" aria-label="Buka menu navigasi">
+                    <i class="bi bi-list fs-5"></i>
+                </button>
                 <a class="btn btn-sm btn-outline-warning" href="{{ auth()->user()?->isAdmin() ? route('admin.watchlists.index') : route('watchlists.index') }}">
                     <i class="bi bi-star-fill me-1"></i>{{ auth()->user()?->isAdmin() ? 'Favorit User' : 'Favorit' }}
                 </a>
@@ -68,6 +75,31 @@
             </div>
         </div>
     </nav>
+
+    <div class="offcanvas offcanvas-start global-mobile-drawer d-lg-none" tabindex="-1" id="globalMobileNavigation" aria-labelledby="globalMobileNavigationLabel">
+        <div class="offcanvas-header border-bottom">
+            <div>
+                <div class="small text-info text-uppercase fw-bold" style="letter-spacing:.1em;"><i class="bi bi-broadcast-pin me-1"></i>GeoPort command</div>
+                <h5 class="offcanvas-title fw-bold mb-0" id="globalMobileNavigationLabel">Navigasi Operasi</h5>
+            </div>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Tutup"></button>
+        </div>
+        <div class="offcanvas-body p-3">
+            <nav class="nav flex-column gap-1">
+                <a class="nav-link" href="{{ route('ports.index') }}"><i class="bi bi-grid-1x2-fill text-info"></i>Live Dashboard</a>
+                <a class="nav-link" href="{{ route('risk-scores.index') }}"><i class="bi bi-shield-exclamation text-warning"></i>Risk Score Engine</a>
+                <a class="nav-link" href="{{ route('country-comparison.index') }}"><i class="bi bi-bar-chart text-info"></i>Country Comparison</a>
+                <a class="nav-link" href="{{ route('news-sentiment.index') }}"><i class="bi bi-newspaper text-info"></i>News Sentiment</a>
+                <a class="nav-link" href="{{ route('trends.index') }}"><i class="bi bi-graph-up-arrow text-success"></i>Historical Trends</a>
+                <a class="nav-link" href="{{ route('cargo.create') }}"><i class="bi bi-box-seam text-warning"></i>Input Cargo</a>
+                <a class="nav-link" href="{{ route('cargo.history') }}"><i class="bi bi-clock-history text-danger"></i>Log Riwayat</a>
+                <a class="nav-link" href="{{ auth()->user()?->isAdmin() ? route('admin.watchlists.index') : route('watchlists.index') }}"><i class="bi bi-star-fill text-warning"></i>Monitoring Favorit</a>
+                @if(auth()->user()?->isAdmin())
+                    <a class="nav-link" href="{{ route('admin.dashboard') }}"><i class="bi bi-shield-lock-fill text-info"></i>Admin Console</a>
+                @endif
+            </nav>
+        </div>
+    </div>
 
     <main class="page-reveal">
         @yield('content')

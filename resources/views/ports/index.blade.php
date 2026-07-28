@@ -12,7 +12,7 @@
 
     <div class="row g-0 min-vh-100 dashboard-grid">
         <!-- SIDEBAR KIRI: NAVIGASI OPERASIONAL GLOBAL -->
-        <div class="col-lg-2 bg-black bg-opacity-50 border-end border-secondary border-opacity-25 d-flex flex-column justify-content-between p-3 dashboard-nav" style="min-height: 100vh;">
+        <div id="dashboardNavPanel" class="col-lg-2 bg-black bg-opacity-50 border-end border-secondary border-opacity-25 d-flex flex-column justify-content-between p-3 dashboard-nav" style="min-height: 100vh;">
             <div>
                 <div class="d-flex align-items-center gap-2 mb-4 px-2">
                     <i class="bi bi-anchor-fill text-info fs-3"></i>
@@ -54,6 +54,14 @@
                     <h5 class="mb-0 fw-bold">Global Supply Chain Radar</h5>
                     <small class="text-white-50 text-uppercase" style="font-size: 11px; letter-spacing: 0.5px;">Control Tower Terminal Operations</small>
                 </div>
+                <div class="dashboard-mobile-controls d-lg-none" aria-label="Panel dashboard mobile">
+                    <button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileNavigationDrawer" aria-controls="mobileNavigationDrawer">
+                        <i class="bi bi-list-nested me-1"></i>Menu Operasi
+                    </button>
+                    <button class="btn btn-sm btn-outline-warning" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileInsightsDrawer" aria-controls="mobileInsightsDrawer">
+                        <i class="bi bi-broadcast-pin me-1"></i>Intel & Alert
+                    </button>
+                </div>
                 <div class="dashboard-search position-relative flex-grow-1 order-lg-0 order-3">
                     <label for="mapSearchInput" class="visually-hidden">Cari negara atau pelabuhan</label>
                     <div class="input-group input-group-sm">
@@ -75,7 +83,7 @@
         </div>
 
         <!-- SIDEBAR KANAN: LIVE AUTOMATED EARLY WARNING SYSTEM -->
-        <div class="col-lg-3 bg-black bg-opacity-40 border-start border-secondary border-opacity-25 d-flex flex-column p-4 dashboard-insights" style="min-height: 100vh; max-height: 100vh; overflow-y: auto;">
+        <div id="dashboardInsightsPanel" class="col-lg-3 bg-black bg-opacity-40 border-start border-secondary border-opacity-25 d-flex flex-column p-4 dashboard-insights" style="min-height: 100vh; max-height: 100vh; overflow-y: auto;">
             <div class="mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h6 class="text-uppercase small fw-bold tracking-wider text-success mb-0"><i class="bi bi-check2-circle text-success"></i> Aktivitas Kapal Tiba</h6>
@@ -179,6 +187,29 @@
     </div>
 </div>
 
+<!-- Mobile drawers keep both desktop sidebars accessible without shrinking the radar map. -->
+<div class="offcanvas offcanvas-start mobile-radar-drawer d-lg-none" tabindex="-1" id="mobileNavigationDrawer" aria-labelledby="mobileNavigationDrawerLabel">
+    <div class="offcanvas-header border-bottom border-info border-opacity-25">
+        <div>
+            <div class="small text-info text-uppercase fw-bold" style="letter-spacing:.1em;"><i class="bi bi-diagram-3 me-1"></i>Control access</div>
+            <h5 class="offcanvas-title fw-bold mb-0" id="mobileNavigationDrawerLabel">Menu Operasi</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Tutup"></button>
+    </div>
+    <div id="mobileNavigationDrawerContent" class="offcanvas-body mobile-drawer-content"></div>
+</div>
+
+<div class="offcanvas offcanvas-end mobile-radar-drawer d-lg-none" tabindex="-1" id="mobileInsightsDrawer" aria-labelledby="mobileInsightsDrawerLabel">
+    <div class="offcanvas-header border-bottom border-info border-opacity-25">
+        <div>
+            <div class="small text-warning text-uppercase fw-bold" style="letter-spacing:.1em;"><i class="bi bi-radar me-1"></i>Live intelligence</div>
+            <h5 class="offcanvas-title fw-bold mb-0" id="mobileInsightsDrawerLabel">Intel & Alert</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Tutup"></button>
+    </div>
+    <div id="mobileInsightsDrawerContent" class="offcanvas-body mobile-drawer-content"></div>
+</div>
+
 @if(($stormZones ?? collect())->isNotEmpty())
 <div class="modal fade" id="stormZoneModal" tabindex="-1" aria-labelledby="stormZoneModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable modal-lg modal-fullscreen-sm-down">
@@ -245,6 +276,17 @@
     .dashboard-search:focus-within .form-control, .dashboard-search:focus-within .input-group-text { border-color:#22d3ee !important; box-shadow:0 0 0 .18rem rgba(34,211,238,.12); }
     .dashboard-insights { background:linear-gradient(180deg, rgba(2,6,23,.94), rgba(8,15,30,.9)) !important; }
     .dashboard-insights > .mb-4 { padding: .85rem; border:1px solid rgba(56,189,248,.12); border-radius:.7rem; background:linear-gradient(145deg, rgba(15,23,42,.42), rgba(2,6,23,.2)); }
+    .dashboard-mobile-controls { display:none; }
+    .mobile-radar-drawer { width:min(88vw, 365px) !important; color:#eaf2ff; background:linear-gradient(155deg,#0d1d33,#050c17 74%) !important; border-color:rgba(34,211,238,.48) !important; box-shadow:0 0 42px rgba(0,0,0,.52),0 0 25px rgba(34,211,238,.12); }
+    .mobile-radar-drawer .offcanvas-header { background:linear-gradient(90deg,rgba(13,47,73,.6),rgba(7,17,29,.7)); }
+    .mobile-drawer-content > div { padding:.85rem; border:1px solid rgba(56,189,248,.18); border-radius:.7rem; background:linear-gradient(145deg,rgba(15,29,49,.84),rgba(5,13,24,.75)); }
+    .mobile-drawer-content .nav { gap:.35rem !important; }
+    .mobile-drawer-content .nav-link { color:#aabbd1; border:1px solid transparent; padding:.72rem .8rem; }
+    .mobile-drawer-content .nav-link:hover { color:#fff; background:rgba(34,211,238,.1); border-color:rgba(34,211,238,.28); }
+    .mobile-drawer-content .arrival-report-link { color:inherit; text-decoration:none; }
+    .mobile-drawer-content .arrival-report-link:hover { color:inherit; background-color:rgba(16,185,129,.18) !important; }
+    .mobile-drawer-content .storm-zone-alert { transition:.18s ease; }
+    .mobile-drawer-content .storm-zone-alert:hover { transform:translateX(-2px); border-color:rgba(34,211,238,.65) !important; }
     .arrival-report-link { color:inherit; text-decoration:none; }
     .arrival-report-link:hover { color:inherit; background-color:rgba(16,185,129,.18) !important; border-color:#34d399 !important; }
     .dashboard-insights h6 { letter-spacing:.08em; }
@@ -284,6 +326,9 @@
         .dashboard-map-column { order: 1; min-height: 0 !important; }
         .dashboard-nav { order: 2; min-height: auto !important; }
         .dashboard-insights { order: 3; min-height: auto !important; max-height: none !important; }
+        .dashboard-nav, .dashboard-insights { display:none !important; }
+        .dashboard-mobile-controls { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; width:100%; order:2; }
+        .dashboard-mobile-controls .btn { min-height:38px; font-size:.78rem; white-space:nowrap; }
         .radar-map-shell { height: min(68dvh, 640px) !important; min-height: 440px; }
         .dashboard-nav .nav { flex-direction: row !important; flex-wrap: wrap; }
         .dashboard-nav .nav-item { flex: 1 1 150px; }
@@ -296,6 +341,7 @@
         .dashboard-map-column h5 { font-size: 1rem; }
         .dashboard-map-column .badge { font-size: 9px; padding: 0.4rem 0.55rem !important; }
         .dashboard-map-header { align-items: flex-start !important; }
+        .dashboard-mobile-controls .btn { font-size:.73rem; padding:.48rem .35rem; }
         .radar-map-shell { height: 62dvh !important; min-height: 390px; }
         .dashboard-insights { padding: 1rem !important; }
         .storm-zone-toolbar { grid-template-columns:1fr; }
@@ -399,6 +445,42 @@
                 focusStormZone(lat, lng);
             });
         });
+
+        // On phones the desktop sidebars become drawers. Clone their content
+        // so the radar keeps its full width while navigation and live alerts
+        // stay one tap away.
+        function populateMobileDrawer(sourceId, targetId) {
+            var source = document.getElementById(sourceId);
+            var target = document.getElementById(targetId);
+            if (!source || !target || !source.firstElementChild) return;
+
+            var content = source.firstElementChild.cloneNode(true);
+            content.querySelectorAll('[id]').forEach(function (element) { element.removeAttribute('id'); });
+            content.querySelectorAll('a[href="#"]').forEach(function (link) {
+                link.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    var originalTracking = document.getElementById('sidebar-active-tracking');
+                    if (originalTracking) originalTracking.click();
+                });
+            });
+            target.replaceChildren(content);
+        }
+
+        populateMobileDrawer('dashboardNavPanel', 'mobileNavigationDrawerContent');
+        populateMobileDrawer('dashboardInsightsPanel', 'mobileInsightsDrawerContent');
+
+        var mobileInsightContent = document.getElementById('mobileInsightsDrawerContent');
+        if (mobileInsightContent) {
+            mobileInsightContent.addEventListener('click', function (event) {
+                var zone = event.target.closest('.storm-zone-alert');
+                if (!zone) return;
+                var lat = Number(zone.dataset.lat), lng = Number(zone.dataset.lng);
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+                var drawer = document.getElementById('mobileInsightsDrawer');
+                if (drawer && window.bootstrap) bootstrap.Offcanvas.getOrCreateInstance(drawer).hide();
+                window.setTimeout(function () { focusStormZone(lat, lng); }, 220);
+            });
+        }
 
         (function initStormZoneDirectory() {
             var search = document.getElementById('stormZoneSearch');

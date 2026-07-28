@@ -4,7 +4,7 @@
 <div class="container-fluid p-0 bg-dark text-white min-vh-100 history-theme" style="font-family: 'Segoe UI', Roboto, sans-serif;">
     <div class="row g-0 min-vh-100">
        
-        <div class="col-lg-2 history-sidebar border-end border-secondary border-opacity-25 d-flex flex-column justify-content-between p-3">
+        <div class="col-lg-2 history-sidebar border-end border-secondary border-opacity-25 d-none d-lg-flex flex-column justify-content-between p-3">
             <div>
                 <div class="d-flex align-items-center gap-2 mb-4 px-2">
                     <i class="bi bi-anchor-fill text-info fs-3"></i>
