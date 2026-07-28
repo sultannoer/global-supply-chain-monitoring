@@ -42,6 +42,8 @@
         .global-mobile-drawer .offcanvas-header { background:linear-gradient(90deg,rgba(13,47,73,.6),rgba(7,17,29,.7)); border-color:var(--gp-line)!important; }
         .global-mobile-drawer .nav-link { color:#aabbd1; border:1px solid transparent; border-radius:.55rem; padding:.72rem .8rem; display:flex; gap:.7rem; align-items:center; }
         .global-mobile-drawer .nav-link:hover,.global-mobile-drawer .nav-link:focus { color:#fff; background:rgba(34,211,238,.1); border-color:rgba(34,211,238,.28); }
+        @media (max-width:991.98px) { .navbar .container { flex-wrap:nowrap; gap:.45rem; padding-inline:.7rem; } .navbar-brand { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:clamp(.92rem,3.9vw,1.1rem); } .navbar .ms-auto { flex-shrink:0; gap:.35rem!important; } .navbar .btn { padding:.38rem .5rem; } }
+        @media (max-width:575.98px) { .navbar .nav-quick-label { display:none; } .navbar .btn { min-width:2.3rem; } }
         main h1, main h2, main h3 { text-shadow:0 0 22px rgba(34,211,238,.1); }
         main .text-white-50 { color:var(--gp-muted) !important; }
         main .input-group-text { background:rgba(10,29,48,.92); color:var(--gp-cyan); border-color:rgba(91,137,175,.48); }
@@ -69,9 +71,9 @@
                     <i class="bi bi-list fs-5"></i>
                 </button>
                 <a class="btn btn-sm btn-outline-warning" href="{{ auth()->user()?->isAdmin() ? route('admin.watchlists.index') : route('watchlists.index') }}">
-                    <i class="bi bi-star-fill me-1"></i>{{ auth()->user()?->isAdmin() ? 'Favorit User' : 'Favorit' }}
+                    <i class="bi bi-star-fill me-1"></i><span class="nav-quick-label">{{ auth()->user()?->isAdmin() ? 'Favorit User' : 'Favorit' }}</span>
                 </a>
-                <a class="btn btn-sm btn-outline-info" href="{{ auth()->user()?->isAdmin() ? route('admin.dashboard') : route('login') }}"><i class="bi bi-shield-lock-fill me-1"></i>{{ auth()->user()?->isAdmin() ? 'Admin' : 'Login Admin' }}</a>
+                <a class="btn btn-sm btn-outline-info" href="{{ auth()->user()?->isAdmin() ? route('admin.dashboard') : route('login') }}"><i class="bi bi-shield-lock-fill me-1"></i><span class="nav-quick-label">{{ auth()->user()?->isAdmin() ? 'Admin' : 'Login Admin' }}</span></a>
             </div>
         </div>
     </nav>

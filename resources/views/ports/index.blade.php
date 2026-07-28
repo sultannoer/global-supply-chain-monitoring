@@ -196,7 +196,23 @@
         </div>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Tutup"></button>
     </div>
-    <div id="mobileNavigationDrawerContent" class="offcanvas-body mobile-drawer-content"></div>
+    <div id="mobileNavigationDrawerContent" class="offcanvas-body mobile-drawer-content">
+        <div>
+            <div class="small text-secondary text-uppercase fw-bold mb-2" style="letter-spacing:.08em;">Akses operasional</div>
+            <nav class="nav flex-column gap-1">
+                <a class="nav-link active rounded bg-primary text-white" href="{{ url('/') }}"><i class="bi bi-grid-1x2-fill"></i>Live Dashboard</a>
+                <a class="nav-link" href="{{ route('risk-scores.index') }}"><i class="bi bi-shield-exclamation text-warning"></i>Risk Score Engine</a>
+                <a class="nav-link" href="{{ route('country-comparison.index') }}"><i class="bi bi-bar-chart text-info"></i>Country Comparison</a>
+                <a class="nav-link" href="{{ $currentUser?->isAdmin() ? route('admin.watchlists.index') : route('watchlists.index') }}"><i class="bi bi-star-fill text-warning"></i>{{ $currentUser?->isAdmin() ? 'Favorit User' : 'Favorite Monitoring' }}</a>
+                <a class="nav-link" href="{{ route('news-sentiment.index') }}"><i class="bi bi-newspaper text-info"></i>News Sentiment</a>
+                <a class="nav-link" href="{{ route('trends.index') }}"><i class="bi bi-graph-up-arrow text-success"></i>Historical Trends</a>
+                <a class="nav-link" href="{{ route('cargo.create') }}"><i class="bi bi-box-seam text-warning"></i>Input Cargo</a>
+                <button id="mobileSidebarActiveTracking" type="button" class="nav-link w-100 text-start"><i class="bi bi-cursor-fill text-success"></i>Active Tracking</button>
+                <a class="nav-link" href="{{ route('cargo.history') }}"><i class="bi bi-clock-history text-danger"></i>Log Riwayat</a>
+                <a class="nav-link" href="{{ $currentUser?->isAdmin() ? route('admin.dashboard') : route('login') }}"><i class="bi bi-shield-lock-fill text-info"></i>Admin Dashboard</a>
+            </nav>
+        </div>
+    </div>
 </div>
 
 <div class="offcanvas offcanvas-end mobile-radar-drawer d-lg-none" tabindex="-1" id="mobileInsightsDrawer" aria-labelledby="mobileInsightsDrawerLabel">
@@ -207,7 +223,40 @@
         </div>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Tutup"></button>
     </div>
-    <div id="mobileInsightsDrawerContent" class="offcanvas-body mobile-drawer-content"></div>
+    <div id="mobileInsightsDrawerContent" class="offcanvas-body mobile-drawer-content">
+        <div>
+            <div class="d-flex justify-content-between align-items-center mb-3"><h6 class="text-uppercase small fw-bold tracking-wider text-success mb-0"><i class="bi bi-check2-circle text-success"></i> Aktivitas Kapal Tiba</h6></div>
+            @forelse($arrivedVessels as $v)
+                @if(($v['step'] ?? 0) >= 1500)
+                    <a href="{{ route('cargo.history', ['vessel' => $v['id']]) }}" class="arrival-report-link d-block bg-success bg-opacity-10 border-start border-3 border-success p-3 rounded shadow-sm mb-2"><div class="d-flex justify-content-between align-items-start mb-1"><span class="fw-bold text-success text-uppercase" style="font-size:11px;">Arrival Report</span><small class="text-muted" style="font-size:10px;">Selesai</small></div><p class="mb-0 small text-white-50">Kapal <strong>{{ $v['name'] }}</strong> telah bersandar aman di <strong>{{ $v['dest_name'] }}</strong>.</p></a>
+                @endif
+            @empty
+                <small class="text-white-50 d-block mb-3">Belum ada kapal tiba yang tercatat.</small>
+            @endforelse
+
+            <div class="border-top border-secondary border-opacity-25 mt-3 pt-3">
+                <div class="d-flex justify-content-between align-items-center mb-2"><h6 class="text-uppercase small fw-bold tracking-wider text-danger mb-0"><i class="bi bi-exclamation-triangle-fill text-danger"></i> Weather Intelligence</h6><small class="text-muted font-monospace">{{ $stormZones->count() }} titik</small></div>
+                <div class="d-flex gap-2 mb-2"><span class="badge text-bg-danger">HIGH: {{ $highStormZones->count() }}</span><span class="badge text-bg-warning">MEDIUM: {{ $mediumStormZones->count() }}</span></div>
+                @forelse($stormZones->take(5) as $storm)
+                    @php $mobileZoneColor = $storm['risk'] === 'HIGH' ? 'danger' : 'warning'; @endphp
+                    <button type="button" class="storm-zone-alert w-100 text-start border border-{{ $mobileZoneColor }} border-opacity-25 bg-dark bg-opacity-50 rounded px-2 py-2 mb-2 text-white" data-lat="{{ $storm['lat'] }}" data-lng="{{ $storm['lng'] }}"><span class="text-{{ $mobileZoneColor }} fw-bold" style="font-size:10px;">{{ $storm['risk'] }} WEATHER</span><span class="d-block text-white-50" style="font-size:10px;">{{ $storm['name'] }} · angin {{ number_format((float) $storm['wind'], 1) }} km/j</span></button>
+                @empty
+                    <small class="text-success d-block">Tidak ada zona cuaca Medium/High.</small>
+                @endforelse
+                @if($stormZones->count() > 5)<button type="button" class="btn btn-sm btn-outline-info w-100 mt-1" data-bs-toggle="modal" data-bs-target="#stormZoneModal"><i class="bi bi-list-radar me-1"></i>Lihat {{ $stormZones->count() }} Zona Cuaca</button>@endif
+            </div>
+
+            <div class="border-top border-secondary border-opacity-25 mt-3 pt-3">
+                <h6 class="text-uppercase small fw-bold tracking-wider text-danger mb-2"><i class="bi bi-bell-fill text-danger"></i> Alert Aktif</h6>
+                @forelse($activeAlerts ?? collect() as $alert)
+                    @php $mobileAlertColor = $alert->alert_level === 'CRITICAL' ? 'danger' : 'warning'; @endphp
+                    <div class="p-2 rounded border border-{{ $mobileAlertColor }} border-opacity-25 bg-{{ $mobileAlertColor }} bg-opacity-10 mb-2"><div class="text-{{ $mobileAlertColor }} fw-bold" style="font-size:10px;">{{ $alert->alert_level }} {{ $alert->risk_type }}</div><small class="text-white-50">{{ $alert->message }}</small></div>
+                @empty
+                    <div class="bg-success bg-opacity-10 border border-success border-opacity-20 p-3 rounded text-center text-success small"><i class="bi bi-shield-check me-1"></i>Tidak ada alert aktif.</div>
+                @endforelse
+            </div>
+        </div>
+    </div>
 </div>
 
 @if(($stormZones ?? collect())->isNotEmpty())
@@ -327,8 +376,8 @@
         .dashboard-nav { order: 2; min-height: auto !important; }
         .dashboard-insights { order: 3; min-height: auto !important; max-height: none !important; }
         .dashboard-nav, .dashboard-insights { display:none !important; }
-        .dashboard-mobile-controls { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; width:100%; order:2; }
-        .dashboard-mobile-controls .btn { min-height:38px; font-size:.78rem; white-space:nowrap; }
+        .dashboard-mobile-controls { position:fixed; z-index:1030; left:max(.75rem, env(safe-area-inset-left)); right:max(.75rem, env(safe-area-inset-right)); bottom:max(.75rem, env(safe-area-inset-bottom)); display:grid; grid-template-columns:1fr 1fr; gap:.5rem; width:auto; order:2; padding:.45rem; border:1px solid rgba(34,211,238,.38); border-radius:.75rem; background:linear-gradient(100deg,rgba(5,15,28,.96),rgba(12,39,62,.95)); box-shadow:0 14px 30px rgba(0,0,0,.34),0 0 18px rgba(34,211,238,.1); }
+        .dashboard-mobile-controls .btn { min-height:40px; font-size:.78rem; white-space:nowrap; }
         .radar-map-shell { height: min(68dvh, 640px) !important; min-height: 440px; }
         .dashboard-nav .nav { flex-direction: row !important; flex-wrap: wrap; }
         .dashboard-nav .nav-item { flex: 1 1 150px; }
@@ -446,28 +495,13 @@
             });
         });
 
-        // On phones the desktop sidebars become drawers. Clone their content
-        // so the radar keeps its full width while navigation and live alerts
-        // stay one tap away.
-        function populateMobileDrawer(sourceId, targetId) {
-            var source = document.getElementById(sourceId);
-            var target = document.getElementById(targetId);
-            if (!source || !target || !source.firstElementChild) return;
-
-            var content = source.firstElementChild.cloneNode(true);
-            content.querySelectorAll('[id]').forEach(function (element) { element.removeAttribute('id'); });
-            content.querySelectorAll('a[href="#"]').forEach(function (link) {
-                link.addEventListener('click', function (event) {
-                    event.preventDefault();
-                    var originalTracking = document.getElementById('sidebar-active-tracking');
-                    if (originalTracking) originalTracking.click();
-                });
+        var mobileTracking = document.getElementById('mobileSidebarActiveTracking');
+        if (mobileTracking) {
+            mobileTracking.addEventListener('click', function () {
+                var originalTracking = document.getElementById('sidebar-active-tracking');
+                if (originalTracking) originalTracking.click();
             });
-            target.replaceChildren(content);
         }
-
-        populateMobileDrawer('dashboardNavPanel', 'mobileNavigationDrawerContent');
-        populateMobileDrawer('dashboardInsightsPanel', 'mobileInsightsDrawerContent');
 
         var mobileInsightContent = document.getElementById('mobileInsightsDrawerContent');
         if (mobileInsightContent) {
