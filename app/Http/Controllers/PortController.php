@@ -3,12 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\Port;
+use App\Models\PortWeatherHistory;
+use App\Models\RiskAlert;
 use App\Models\Shipment;
 use App\Services\WeatherService;
 use App\Services\EconomicService; 
 use App\Services\ExchangeRateService;
 use App\Services\MarineTrafficService;
 use App\Services\NewsService;
+use App\Services\VoyageCostEstimator;
+use App\Services\RiskAssessmentService;
+use App\Services\RouteWeatherEtaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -20,19 +25,25 @@ class PortController extends Controller
     protected $exchangeRateService;
     protected $marineService;
     protected $newsService;
+    protected $riskAssessmentService;
+    protected $routeWeatherEtaService;
 
     public function __construct(
         WeatherService $weatherService,
         EconomicService $economicService, 
         ExchangeRateService $exchangeRateService,
         MarineTrafficService $marineService,
-        NewsService $newsService
+        NewsService $newsService,
+        RiskAssessmentService $riskAssessmentService,
+        RouteWeatherEtaService $routeWeatherEtaService,
     ) {
         $this->weatherService = $weatherService;
         $this->economicService = $economicService; 
         $this->exchangeRateService = $exchangeRateService;
         $this->marineService = $marineService;
         $this->newsService = $newsService; 
+        $this->riskAssessmentService = $riskAssessmentService;
+        $this->routeWeatherEtaService = $routeWeatherEtaService;
     }
 
     public function index(Request $request)
@@ -71,10 +82,16 @@ class PortController extends Controller
                 'temp' => $port->temp_celsius ?? $port->temp,
                 'wind' => $port->wind_speed_kmh ?? $port->wind_speed,
                 'rain' => $port->rain_mm ?? $port->rain ?? 0.0,
+                'storm_risk_status' => $port->storm_risk_status ?? 'N/A',
+                'risk_score' => $port->risk_score,
                 'rate' => $rate,
                 'news' => $latestNews
             ];
         })->values();
+
+        // Keep the complete weather snapshot set for storm-zone rendering even
+        // when the user filters visible ports with the search box.
+        $stormSourcePorts = $enrichedPorts;
 
         if ($search) {
             $enrichedPorts = $enrichedPorts->filter(function($port) use ($search) {
@@ -125,11 +142,59 @@ class PortController extends Controller
         })
         ->values()->toArray();
 
-        // No synthetic storm markers: weather risk is sourced from Open-Meteo per port/vessel.
-        $enrichedStorms = [];
+        // Storm zones are derived from the latest Open-Meteo snapshot stored on
+        // each port, not from random or hard-coded geographic locations.
+        $enrichedStorms = $stormSourcePorts
+            ->filter(function ($port) {
+                return in_array(strtoupper((string) $port['storm_risk_status']), ['HIGH', 'MEDIUM'], true)
+                    && is_numeric($port['lat']) && is_numeric($port['lng']);
+            })
+            ->map(function ($port) {
+                $highRisk = strtoupper((string) $port['storm_risk_status']) === 'HIGH';
 
-        $dbShipments = Shipment::with(['originPort', 'destinationPort'])->get();
-        $allCustomVessels = $dbShipments->map(function($s) {
+                return [
+                    'name' => $port['name'],
+                    'lat' => (float) $port['lat'],
+                    'lng' => (float) $port['lng'],
+                    'radius_km' => $highRisk ? 300 : 180,
+                    'risk' => $highRisk ? 'HIGH' : 'MEDIUM',
+                    'wind' => $port['wind'],
+                    'rain' => $port['rain'],
+                    'source' => 'Open-Meteo port snapshot',
+                ];
+            })->values()->toArray();
+
+        // Kapal aktif tetap menjadi satu-satunya sumber alert cuaca rute.
+        // Kapal yang sudah tiba juga dipetakan sebagai jejak operasi selesai,
+        // tetapi tidak lagi disimulasikan bergerak atau menghasilkan alert baru.
+        $activeShipments = Shipment::with(['originPort', 'destinationPort'])
+            ->whereIn('status', ['DEPARTING', 'ON_VOYAGE'])
+            ->where('step', '<', 1500)
+            ->get();
+
+        foreach ($activeShipments as $shipment) {
+            $this->routeWeatherEtaService->synchronize($shipment, $enrichedStorms);
+        }
+        $activeShipments->each->refresh();
+        $activeShipments->load(['originPort', 'destinationPort']);
+
+        $arrivedShipments = Shipment::with(['originPort', 'destinationPort'])
+            ->where(function ($query) {
+                $query->where('step', '>=', 1500)->orWhere('status', 'ARRIVED');
+            })
+            ->latest('updated_at')
+            ->take(8)
+            ->get();
+
+        $inactiveRouteAlerts = RiskAlert::query()
+            ->where('risk_type', 'WEATHER')
+            ->where('message', 'like', '[ROUTE-ZONE]%');
+        if ($activeShipments->isNotEmpty()) {
+            $inactiveRouteAlerts->whereNotIn('shipment_id', $activeShipments->pluck('id'));
+        }
+        $inactiveRouteAlerts->update(['is_resolved' => true]);
+        $mapShipments = $activeShipments->concat($arrivedShipments)->unique('id')->values();
+        $allCustomVessels = $mapShipments->map(function($s) {
             return [
                 'id' => $s->id,
                 'name' => $s->vessel_name,
@@ -144,14 +209,22 @@ class PortController extends Controller
                 'cargo_weight' => $s->cargo_weight,
                 'currency_value' => $s->initial_cost_usd,
                 'status' => $s->status,
-                'step' => $s->step
+                'step' => $s->step,
+                'baseline_eta' => $s->baseline_eta?->format('d M Y'),
+                'adaptive_eta' => $s->adaptive_eta?->format('d M Y'),
+                'weather_delay_hours' => (int) ($s->weather_delay_hours ?? 0),
+                'route_weather_status' => $s->route_weather_status ?? 'Clear',
+                'route_storm_name' => $s->route_storm_name,
             ];
         })->toArray();
 
         $enrichedVessels = array_map(function ($vessel) use ($enrichedPorts, $enrichedStorms) {
             $destPort = collect($enrichedPorts)->firstWhere('name', $vessel['dest_name']);
+            $isActiveShipment = in_array($vessel['status'], ['DEPARTING', 'ON_VOYAGE'], true)
+                && (int) $vessel['step'] < 1500;
             
             $insideStormStatic = false;
+            $routeStorm = null;
             $currentLat = $vessel['live_lat'] ?? $vessel['lat'];
             $currentLng = $vessel['live_lng'] ?? $vessel['lng'];
 
@@ -165,8 +238,54 @@ class PortController extends Controller
                 
                 if ($km <= $storm['radius_km']) {
                     $insideStormStatic = true;
-                    break;
                 }
+
+                if ($this->routeIntersectsStormZone(
+                    (float) $currentLat,
+                    (float) $currentLng,
+                    (float) $vessel['dest_lat'],
+                    (float) $vessel['dest_lng'],
+                    $storm
+                )) {
+                    $routeStorm = $storm;
+                }
+            }
+
+            $routeAlert = $isActiveShipment
+                ? RiskAlert::query()
+                    ->where('shipment_id', $vessel['id'])
+                    ->where('risk_type', 'WEATHER')
+                    ->where('message', 'like', '[ROUTE-ZONE]%')
+                    ->where('is_resolved', false)
+                    ->first()
+                : null;
+
+            if ($isActiveShipment && $routeStorm) {
+                $alertPayload = [
+                    'port_id' => null,
+                    'alert_level' => $routeStorm['risk'] === 'HIGH' ? 'CRITICAL' : 'WARNING',
+                    'risk_type' => 'WEATHER',
+                    'message' => sprintf(
+                        '[ROUTE-ZONE] Kapal %s pada rute %s menuju %s diproyeksikan melintasi zona cuaca %s di sekitar %s (radius %s km). ETA adaptif %s; keterlambatan estimasi +%s jam.',
+                        $vessel['name'],
+                        $vessel['origin_name'],
+                        $vessel['dest_name'],
+                        $routeStorm['risk'],
+                        $routeStorm['name'],
+                        number_format($routeStorm['radius_km'], 0),
+                        $vessel['adaptive_eta'] ?? 'menunggu kalkulasi',
+                        number_format((int) ($vessel['weather_delay_hours'] ?? 0))
+                    ),
+                    'is_resolved' => false,
+                ];
+
+                if ($routeAlert) {
+                    $routeAlert->update($alertPayload);
+                } else {
+                    RiskAlert::create(['shipment_id' => $vessel['id']] + $alertPayload);
+                }
+            } elseif ($isActiveShipment && $routeAlert) {
+                $routeAlert->update(['is_resolved' => true]);
             }
 
             // Jangan memanggil Open-Meteo untuk setiap kapal saat dashboard
@@ -188,6 +307,11 @@ class PortController extends Controller
                 ? '⚠️ ALERT: Critical Storm Impact Encountered' 
                 : ($midOceanWind > 15 ? '⚠️ ALERT: High Wind Risk Encountered' : '🌤️ Calm Sea Condition');
             
+            if ($routeStorm && ! $insideStorm) {
+                $stormRisk = 'WARNING: Planned route intersects storm zone';
+                $lossImpact = 'LOSS METRIC: Route risk penalty applied (-15%)';
+            }
+
             $rate = $destPort['rate'] ?? null;
             $lossImpact = $insideStorm ? '⚠️ LOSS METRIC: Devisa Penalty Applied (-15%)' : ($midOceanWind > 15 ? 'Potential Currency Loss (-1.2%)' : 'Stable (+0.4%)');
 
@@ -196,6 +320,7 @@ class PortController extends Controller
                 'wind' => $midOceanWind,
                 'rain' => $rain,
                 'storm_alert' => $stormRisk,
+                'route_storm' => $routeStorm,
                 'exchange_rate' => $rate,
                 'currency_code' => $destPort['currency'] ?? 'USD',
                 'currency_loss' => $lossImpact,
@@ -204,13 +329,23 @@ class PortController extends Controller
             ]);
         }, $allCustomVessels);
 
-        $activeAlerts = \App\Models\RiskAlert::with(['shipment', 'port'])
-                ->where('is_resolved', false)
+        $activeAlerts = \App\Models\RiskAlert::active()
+                ->with(['shipment', 'port'])
                 ->orderBy('created_at', 'desc')
                 ->take(5)
                 ->get();
 
-        return view('ports.index', compact('enrichedPorts', 'enrichedCountries', 'enrichedVessels', 'enrichedStorms', 'search', 'activeAlerts'));
+        // Laporan di sidebar memakai koleksi yang sama dengan jejak kapal tiba
+        // di map, sehingga keduanya selalu konsisten.
+        $arrivedVessels = $arrivedShipments->map(fn (Shipment $shipment) => [
+                'id' => $shipment->id,
+                'name' => $shipment->vessel_name,
+                'dest_name' => $shipment->destinationPort?->name ?? 'Unknown',
+                'step' => $shipment->step,
+                'status' => $shipment->status,
+            ]);
+
+        return view('ports.index', compact('enrichedPorts', 'enrichedCountries', 'enrichedVessels', 'arrivedVessels', 'enrichedStorms', 'search', 'activeAlerts'));
     }
 
     public function updateVesselCoordinates(Request $request, $id)
@@ -248,7 +383,7 @@ class PortController extends Controller
                 }
             }
         }
-        $port->refresh(); 
+        $port->refresh();
 
         $countryCode = $port->country->code ?? 'IDN';
         // Country and World Bank data are refreshed by the scheduled sync.
@@ -337,15 +472,51 @@ class PortController extends Controller
         if ($port->temp === null || $port->wind_speed === null) {
             // A port without weather data is refreshed immediately, even if it
             // has not reached its background batch yet.
-            $this->weatherService->updatePortWeather($port);
+            $weatherUpdated = $this->weatherService->updatePortWeather($port);
         } else {
-            Cache::remember("port_weather_refresh_{$port->id}", now()->addMinutes(15), function () use ($port) {
-                return $this->weatherService->updatePortWeather($port);
-            });
+            $weatherUpdated = false;
+            $weatherRefreshKey = "port_weather_refresh_{$port->id}";
+            if (! Cache::has($weatherRefreshKey)) {
+                $weatherUpdated = $this->weatherService->updatePortWeather($port);
+                Cache::put($weatherRefreshKey, true, now()->addMinutes(15));
+            }
         }
         $port->refresh();
 
-        $newsData = $this->newsService->getLatestNews($port->country->name);
+        if ($weatherUpdated && $port->temp !== null) {
+            $this->riskAssessmentService->calculatePortRisk($port);
+            $port->refresh();
+            PortWeatherHistory::create([
+                'port_id' => $port->id,
+                'temp' => $port->temp,
+                'rain' => $port->rain,
+                'wind_speed' => $port->wind_speed,
+                'storm_risk_status' => $port->storm_risk_status,
+                'risk_score' => $port->risk_score,
+                'recorded_at' => now(),
+            ]);
+
+            if ($port->country) {
+                $this->riskAssessmentService->calculateCountryRisk($port->country);
+            }
+        }
+        $stormZoneExposure = $this->riskAssessmentService->stormExposureForCoordinates(
+            (float) $port->latitude,
+            (float) $port->longitude,
+            $port->id,
+        );
+
+        // Keep the detail chart useful even when Open-Meteo is temporarily
+        // unavailable: use the latest local snapshot as a clearly labelled
+        // flat forecast instead of rendering an empty chart.
+        if (empty($weatherTimeline) && $port->temp !== null) {
+            $weatherTimeline = array_fill(0, 7, (float) $port->temp);
+            $exchangeData['weather_data'] = $weatherTimeline;
+        }
+
+        $portNews = $this->newsService->getPortNews($port, 5);
+        $newsData = $portNews['articles'];
+        $newsScope = $portNews['scope'];
 
         $totalInboundCount = $port->inboundShipments->count() + count($customInboundVessels);
         $radarData = [
@@ -355,12 +526,12 @@ class PortController extends Controller
         ];
 
         return view('ports.show', compact(
-            'port', 'exchangeData', 'radarData', 'newsData', 'customInboundVessels', 'customOutboundVessels',
-            'realCargoCount', 'realTankerCount', 'realTugCount'
+            'port', 'exchangeData', 'radarData', 'newsData', 'newsScope', 'customInboundVessels', 'customOutboundVessels',
+            'realCargoCount', 'realTankerCount', 'realTugCount', 'stormZoneExposure'
         ));
     }
 
-    public function createCargo()
+    public function createCargo(VoyageCostEstimator $estimator)
     {
         $ports = Port::with('country')->orderBy('name', 'asc')->get();
         $vesselsByPort = [];
@@ -372,10 +543,21 @@ class PortController extends Controller
                 ['id' => $port->id . '03', 'name' => $shortName . '-MARU (General Cargo Ready)']
             ];
         }
-        return view('ports.create_cargo', compact('ports', 'vesselsByPort'));
+        $portMetrics = $ports->mapWithKeys(fn ($port) => [$port->id => [
+            'lat' => (float) $port->latitude,
+            'lng' => (float) $port->longitude,
+            'storm_risk_status' => $port->storm_risk_status ?: 'Low',
+        ]])->all();
+
+        return view('ports.create_cargo', [
+            'ports' => $ports,
+            'vesselsByPort' => $vesselsByPort,
+            'portMetrics' => $portMetrics,
+            'estimationConfig' => $estimator->config(),
+        ]);
     }
 
-    public function storeCargo(Request $request)
+    public function storeCargo(Request $request, VoyageCostEstimator $estimator)
     {
         $request->validate([
             'origin_port'      => 'required|exists:ports,id',
@@ -389,9 +571,31 @@ class PortController extends Controller
         ]);
 
         $vesselLabel = $request->input('vessel_name_hidden');
-        if (empty($vesselLabel)) { $vesselLabel = 'LOGIXCHAIN-CARRIER (#' . $request->vessel_id . ')'; }
+        if (empty($vesselLabel)) { $vesselLabel = 'GEOPORT-CARRIER (#' . $request->vessel_id . ')'; }
+
+        $vesselProfile = $estimator->vesselProfile($vesselLabel);
+        if ((float) $request->cargo_weight > $vesselProfile['capacity_tons']) {
+            return back()->withInput()->withErrors([
+                'cargo_weight' => sprintf(
+                    'Muatan %s ton melebihi kapasitas %s ton untuk %s.',
+                    number_format((float) $request->cargo_weight, 0),
+                    number_format($vesselProfile['capacity_tons'], 0),
+                    $vesselProfile['class'],
+                ),
+            ]);
+        }
 
         $originPort = Port::find($request->origin_port);
+        $destinationPort = Port::find($request->destination_port);
+        $estimate = $estimator->estimate(
+            ['lat' => $originPort->latitude, 'lng' => $originPort->longitude, 'storm_risk_status' => $originPort->storm_risk_status],
+            ['lat' => $destinationPort->latitude, 'lng' => $destinationPort->longitude, 'storm_risk_status' => $destinationPort->storm_risk_status],
+            (float) $request->cargo_weight,
+            (float) $request->currency_value,
+            $vesselLabel,
+        );
+        $departure = now()->startOfDay();
+        $baselineEta = $departure->copy()->addHours((int) round(($estimate['transit_days'] ?? 3) * 24));
         
         Shipment::create([
             'tracking_number'     => 'TRK-' . strtoupper(uniqid()),
@@ -400,15 +604,29 @@ class PortController extends Controller
             'destination_port_id' => $request->destination_port,
             'current_lat'         => $originPort->latitude ?? -6.1014,
             'current_lng'         => $originPort->longitude ?? 106.8831,
+            'departure_date'      => $departure->toDateString(),
+            'baseline_eta'        => $baselineEta->toDateString(),
+            'adaptive_eta'        => $baselineEta->toDateString(),
             'initial_cost_usd'    => $request->currency_value,
             'cargo_weight'        => $request->cargo_weight,
             'status'              => 'DEPARTING',
             'step'                => 0
         ]);
 
+        if ($estimate['ready']) {
+            session()->flash('estimate_summary', sprintf(
+                'Server estimate: route %s km | transit %s days | gross $%s | total costs $%s | net margin $%s.',
+                number_format($estimate['distance_km'], 0),
+                number_format($estimate['transit_days'], 1),
+                number_format($estimate['gross_revenue'], 0),
+                number_format($estimate['fuel_cost'] + $estimate['insurance_cost'] + $estimate['port_fees'], 0),
+                number_format($estimate['net_margin'], 0),
+            ));
+        }
+
         return redirect()->route('cargo.create')->with(
             'success', 
-            '🔒🔒🔒 LOGIXCHAIN SECURE: Manifest rute berhasil dikunci! Kapal ditambahkan ke radar pelayaran.'
+            '🔒🔒🔒 GEOPORT SECURE: Manifest rute berhasil dikunci! Kapal ditambahkan ke radar pelayaran.'
         );
     }
 
@@ -422,10 +640,45 @@ class PortController extends Controller
         ]);
     }
 
+    /**
+     * Approximate great-circle route intersection by sampling the planned
+     * route. This keeps the dashboard lightweight while flagging a storm zone
+     * that the vessel is expected to cross.
+     */
+    private function routeIntersectsStormZone(float $startLat, float $startLng, float $endLat, float $endLng, array $storm): bool
+    {
+        $samples = 24;
+
+        for ($index = 0; $index <= $samples; $index++) {
+            $ratio = $index / $samples;
+            $lat = $startLat + (($endLat - $startLat) * $ratio);
+            $lng = $startLng + (($endLng - $startLng) * $ratio);
+
+            if ($this->distanceKm($lat, $lng, (float) $storm['lat'], (float) $storm['lng']) <= (float) $storm['radius_km']) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function distanceKm(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $earthRadius = 6371.0;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+
+        return $earthRadius * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
+
     public function history(Request $request)
     {
+        $selectedVessel = $request->integer('vessel') ?: null;
         $dbCompletedShipments = Shipment::with(['originPort', 'destinationPort'])
                                         ->where('step', '>=', 1500)
+                                        ->when($selectedVessel, fn ($query) => $query->whereKey($selectedVessel))
                                         ->get();
 
         $completedVessels = [];
@@ -446,6 +699,10 @@ class PortController extends Controller
                 'currency_value'     => $shipment->initial_cost_usd,
                 'origin_country_iso' => strtoupper($originISO),
                 'dest_country_iso'   => strtoupper($destISO),
+                'baseline_eta'       => $shipment->baseline_eta,
+                'adaptive_eta'       => $shipment->adaptive_eta,
+                'weather_delay_hours'=> (int) ($shipment->weather_delay_hours ?? 0),
+                'route_weather_status' => $shipment->route_weather_status ?? 'Clear',
             ];
         }
 
@@ -453,7 +710,7 @@ class PortController extends Controller
         $totalCargoDelivered = array_sum(array_column($completedVessels, 'cargo_weight'));
         $totalOperationalCost = array_sum(array_column($completedVessels, 'currency_value'));
 
-        return view('ports.history', compact('completedVessels', 'totalCompleted', 'totalCargoDelivered', 'totalOperationalCost'));
+        return view('ports.history', compact('completedVessels', 'totalCompleted', 'totalCargoDelivered', 'totalOperationalCost', 'selectedVessel'));
     }
 
             // 🅰️ 100% DINAMIS: Tembak REST Countries API dengan Bypass SSL Validator

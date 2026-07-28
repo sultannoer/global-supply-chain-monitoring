@@ -17,6 +17,9 @@ class Shipment extends Model
         'departure_date', 
         'baseline_eta', 
         'adaptive_eta',
+        'weather_delay_hours',
+        'route_weather_status',
+        'route_storm_name',
         'initial_cost_usd', 
         'current_exchange_rate', 
         'cargo_weight', // Tambahan wajib untuk radar

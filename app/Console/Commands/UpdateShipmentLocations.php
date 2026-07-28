@@ -38,7 +38,7 @@ class UpdateShipmentLocations extends Command
      */
     public function handle()
     {
-        $this->info('🚀 Memulai pemindaian radar satelit LogixChain...');
+        $this->info('🚀 Memulai pemindaian radar satelit GeoPort Analytics...');
 
         // Ambil semua kapal yang statusnya sedang berlayar
         $activeShipments = Shipment::whereIn('status', ['ON_VOYAGE', 'DEPARTING'])->get();
