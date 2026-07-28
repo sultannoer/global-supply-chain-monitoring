@@ -7,7 +7,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Watchlist extends Model
 {
-    protected $fillable = ['country_code', 'note'];
+    protected $fillable = ['user_id', 'country_code', 'note'];
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public function country(): BelongsTo
     {

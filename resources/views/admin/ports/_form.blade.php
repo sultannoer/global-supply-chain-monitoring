@@ -1,0 +1,12 @@
+<div class="row g-3">
+    <div class="col-md-6"><label class="form-label">Nama pelabuhan</label><input name="name" value="{{ old('name', $port->name ?? '') }}" class="form-control" required maxlength="255"></div>
+    <div class="col-md-6"><label class="form-label">Negara</label><select name="country_code" class="form-select" required><option value="">Pilih negara</option>@foreach($countries as $country)<option value="{{ $country->code }}" @selected(old('country_code', $port->country_code ?? '') === $country->code)>{{ $country->name }} ({{ $country->code }})</option>@endforeach</select></div>
+    <div class="col-md-6"><label class="form-label">Latitude</label><input name="latitude" type="number" step="0.00000001" min="-90" max="90" value="{{ old('latitude', $port->latitude ?? '') }}" class="form-control" required></div>
+    <div class="col-md-6"><label class="form-label">Longitude</label><input name="longitude" type="number" step="0.00000001" min="-180" max="180" value="{{ old('longitude', $port->longitude ?? '') }}" class="form-control" required></div>
+    <div class="col-md-4"><label class="form-label">Suhu (°C)</label><input name="temp" type="number" step="0.1" value="{{ old('temp', $port->temp ?? '') }}" class="form-control"></div>
+    <div class="col-md-4"><label class="form-label">Curah hujan (mm)</label><input name="rain" type="number" step="0.01" min="0" value="{{ old('rain', $port->rain ?? '') }}" class="form-control"></div>
+    <div class="col-md-4"><label class="form-label">Kecepatan angin (km/h)</label><input name="wind_speed" type="number" step="0.01" min="0" value="{{ old('wind_speed', $port->wind_speed ?? '') }}" class="form-control"></div>
+    <div class="col-md-6"><label class="form-label">Status risiko badai</label><select name="storm_risk_status" class="form-select" required>@foreach(['Low','Medium','High'] as $status)<option value="{{ $status }}" @selected(old('storm_risk_status', $port->storm_risk_status ?? 'Low') === $status)>{{ $status }}</option>@endforeach</select></div>
+    <div class="col-md-6"><label class="form-label">Risk score (0–100)</label><input name="risk_score" type="number" min="0" max="100" value="{{ old('risk_score', $port->risk_score ?? 0) }}" class="form-control" required></div>
+</div>
+<div class="d-flex gap-2 mt-4"><button class="btn btn-info fw-semibold"><i class="bi bi-save me-1"></i>Simpan Dataset</button><a href="{{ route('admin.ports.index') }}" class="btn btn-outline-secondary">Batal</a></div>
