@@ -43,6 +43,9 @@
                     <li class="nav-item"><a id="sidebar-active-tracking" class="nav-link text-white-50 hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small" href="#"><i class="bi bi-cursor-fill text-success"></i> Active Tracking</a></li>
                     <li class="nav-item"><a class="nav-link text-white-50 hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small" href="{{ route('cargo.history') }}"><i class="bi bi-clock-history text-danger"></i> Log Riwayat</a></li>
                     <li class="nav-item"><a class="nav-link text-white-50 hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small" href="{{ auth()->user()?->isAdmin() ? route('admin.dashboard') : route('login') }}"><i class="bi bi-shield-lock-fill text-info"></i> Admin Dashboard</a></li>
+                    @auth
+                    <li class="nav-item mt-2 pt-2 border-top border-secondary border-opacity-25"><form method="POST" action="{{ route('logout') }}">@csrf<button type="submit" class="nav-link w-100 text-start text-danger hover-light rounded d-flex align-items-center gap-3 px-3 py-2.5 small"><i class="bi bi-box-arrow-right"></i> Keluar dari akun</button></form></li>
+                    @endauth
                 </ul>
             </div>
         </div>

@@ -74,6 +74,9 @@
                     <i class="bi bi-star-fill me-1"></i><span class="nav-quick-label">{{ auth()->user()?->isAdmin() ? 'Favorit User' : 'Favorit' }}</span>
                 </a>
                 <a class="btn btn-sm btn-outline-info" href="{{ auth()->user()?->isAdmin() ? route('admin.dashboard') : route('login') }}"><i class="bi bi-shield-lock-fill me-1"></i><span class="nav-quick-label">{{ auth()->user()?->isAdmin() ? 'Admin' : 'Login Admin' }}</span></a>
+                @auth
+                    <form method="POST" action="{{ route('logout') }}" class="d-none d-lg-block">@csrf<button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-box-arrow-right me-1"></i>Keluar</button></form>
+                @endauth
             </div>
         </div>
     </nav>
